@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" /> <!-- slate-900 -->
+      <stop offset="100%" stop-color="#1e293b" /> <!-- slate-800 -->
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" /> <!-- emerald-500 -->
+      <stop offset="100%" stop-color="#059669" /> <!-- emerald-600 -->
+    </linearGradient>
+  </defs>
+  <!-- Background with dark slate rounded square for premium app icon look -->
+  <rect x="5" y="5" width="90" height="90" rx="24" fill="url(#grad)" />
+  
+  <!-- Outer glowing gear ring -->
+  <circle cx="50" cy="50" r="30" fill="none" stroke="url(#accentGrad)" stroke-width="5" stroke-dasharray="12 6" />
+  
+  <!-- Central sleek racing stripe / mechanical wrench cross-section -->
+  <path d="M38 32 C41 28, 47 28, 50 32 L64 46 C67 49, 67 55, 64 58 L58 64 C55 67, 49 67, 46 64 L32 50 C28 47, 28 41, 32 38 Z" fill="#ffffff" />
+  
+  <!-- Sleek metallic bolt inside -->
+  <polygon points="50,44 56,47 56,53 50,56 44,53 44,47" fill="url(#accentGrad)" />
+</svg>

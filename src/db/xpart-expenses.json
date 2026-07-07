@@ -1,0 +1,738 @@
+[
+ {
+  "date": "2026-06-01",
+  "type": "Transport",
+  "amount": 28000,
+  "paymentMode": "Online payment",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-01",
+  "type": "Daily expenses",
+  "amount": 9600,
+  "paymentMode": "Online payment",
+  "recipient": "Tea boy",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-02",
+  "type": "Job work",
+  "amount": 400000,
+  "paymentMode": "Online payment",
+  "recipient": "4000",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-02",
+  "type": "Staff expenses",
+  "amount": 13000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-02",
+  "type": "Staff expenses",
+  "amount": 13000,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-02",
+  "type": "Staff expenses",
+  "amount": 10000,
+  "paymentMode": "Online payment",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-02",
+  "type": "Daily expenses",
+  "amount": 8000,
+  "paymentMode": "Online payment",
+  "recipient": "Tea boy",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-02",
+  "type": "Workshop expenses",
+  "amount": 160600,
+  "paymentMode": "Online payment",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-03",
+  "type": "Job work",
+  "amount": 1000000,
+  "paymentMode": "Online payment",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-04",
+  "type": "Job work",
+  "amount": 1500000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-04",
+  "type": "Daily expenses",
+  "amount": 17600,
+  "paymentMode": "Cash",
+  "recipient": "Tea boy",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-05",
+  "type": "Staff expenses",
+  "amount": 1262000,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-05",
+  "type": "Daily expenses",
+  "amount": 10000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-05",
+  "type": "Staff expenses",
+  "amount": 20000,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-05",
+  "type": "Job work",
+  "amount": 85000,
+  "paymentMode": "Cash",
+  "recipient": "Ijjaz",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-05",
+  "type": "Staff expenses",
+  "amount": 242400,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-06",
+  "type": "Job work",
+  "amount": 2000000,
+  "paymentMode": "Cash",
+  "recipient": "Painter",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-06",
+  "type": "Daily expenses",
+  "amount": 12300,
+  "paymentMode": "Cash",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-06",
+  "type": "Daily expenses",
+  "amount": 17200,
+  "paymentMode": "Cash",
+  "recipient": "Tea boy",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-06",
+  "type": "Job work",
+  "amount": 160000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-07",
+  "type": "Staff expenses",
+  "amount": 709700,
+  "paymentMode": "Cash",
+  "recipient": "Salman",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-08",
+  "type": "Staff expenses",
+  "amount": 10000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-08",
+  "type": "Transport",
+  "amount": 130000,
+  "paymentMode": "Cash",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-08",
+  "type": "Transport",
+  "amount": 35800,
+  "paymentMode": "Cash",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-08",
+  "type": "Job work",
+  "amount": 620000,
+  "paymentMode": "Cash",
+  "recipient": "Karthik",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-09",
+  "type": "Workshop expenses",
+  "amount": 12500,
+  "paymentMode": "Cash",
+  "recipient": "Hindustan Automobiles",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-09",
+  "type": "Job work",
+  "amount": 1570000,
+  "paymentMode": "Cash",
+  "recipient": "Saravanan T&P",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-09",
+  "type": "Staff expenses",
+  "amount": 10000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-09",
+  "type": "Daily expenses",
+  "amount": 5000,
+  "paymentMode": "Cash",
+  "recipient": "All",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-09",
+  "type": "Workshop expenses",
+  "amount": 36000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-10",
+  "type": "Transport",
+  "amount": 50000,
+  "paymentMode": "Cash",
+  "recipient": "Yukesh",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-10",
+  "type": "Marketing",
+  "amount": 50000,
+  "paymentMode": "Cash",
+  "recipient": "All",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-10",
+  "type": "Workshop expenses",
+  "amount": 180000,
+  "paymentMode": "Cash",
+  "recipient": "MAK Autocare",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-10",
+  "type": "Transport",
+  "amount": 50000,
+  "paymentMode": "Cash",
+  "recipient": "Ijjaz",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-10",
+  "type": "Transport",
+  "amount": 10000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-10",
+  "type": "Workshop expenses",
+  "amount": 4500000,
+  "paymentMode": "Cash",
+  "recipient": "Balaiah",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-11",
+  "type": "Staff expenses",
+  "amount": 6500,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-11",
+  "type": "Staff expenses",
+  "amount": 12500,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-11",
+  "type": "Staff expenses",
+  "amount": 62500,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-11",
+  "type": "Workshop expenses",
+  "amount": 12000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-11",
+  "type": "Workshop expenses",
+  "amount": 7500,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-11",
+  "type": "Workshop expenses",
+  "amount": 58882,
+  "paymentMode": "Cash",
+  "recipient": "Jio shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-11",
+  "type": "Tools and equipment",
+  "amount": 220000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-12",
+  "type": "Workshop expenses",
+  "amount": 37300,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-12",
+  "type": "Job work",
+  "amount": 40000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-12",
+  "type": "Tools and equipment",
+  "amount": 76000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-13",
+  "type": "Transport",
+  "amount": 37000,
+  "paymentMode": "Cash",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-13",
+  "type": "Job work",
+  "amount": 360000,
+  "paymentMode": "Cash",
+  "recipient": "Rahmatullah",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-13",
+  "type": "Transport",
+  "amount": 20000,
+  "paymentMode": "Cash",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-13",
+  "type": "Staff expenses",
+  "amount": 67900,
+  "paymentMode": "Cash",
+  "recipient": "Tea boy",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-14",
+  "type": "Workshop expenses",
+  "amount": 13000,
+  "paymentMode": "Cash",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-14",
+  "type": "Workshop expenses",
+  "amount": 31500,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-15",
+  "type": "Staff expenses",
+  "amount": 13000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-15",
+  "type": "Staff expenses",
+  "amount": 12000,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-15",
+  "type": "Job work",
+  "amount": 160000,
+  "paymentMode": "Cash",
+  "recipient": "Samsat",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-15",
+  "type": "Staff expenses",
+  "amount": 500000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-17",
+  "type": "Workshop expenses",
+  "amount": 233900,
+  "paymentMode": "Cash",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-17",
+  "type": "Staff expenses",
+  "amount": 10000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-17",
+  "type": "Workshop expenses",
+  "amount": 20000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-19",
+  "type": "Marketing",
+  "amount": 56000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-19",
+  "type": "Staff expenses",
+  "amount": 35300,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-19",
+  "type": "Job work",
+  "amount": 530000,
+  "paymentMode": "Cash",
+  "recipient": "Saravanan (Painter)",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-20",
+  "type": "Workshop expenses",
+  "amount": 10000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-20",
+  "type": "Workshop expenses",
+  "amount": 118,
+  "paymentMode": "Cash",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-20",
+  "type": "Job work",
+  "amount": 70000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-20",
+  "type": "Parts",
+  "amount": 4400,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-20",
+  "type": "Marketing",
+  "amount": 82000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-20",
+  "type": "Daily expenses",
+  "amount": 70000,
+  "paymentMode": "Cash",
+  "recipient": "Tea boy",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-20",
+  "type": "Staff expenses",
+  "amount": 10000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-21",
+  "type": "Daily expenses",
+  "amount": 15000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-22",
+  "type": "Staff expenses",
+  "amount": 250000,
+  "paymentMode": "Cash",
+  "recipient": "Babu",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-22",
+  "type": "Transport",
+  "amount": 30000,
+  "paymentMode": "Cash",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-22",
+  "type": "Staff expenses",
+  "amount": 100000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-24",
+  "type": "Marketing",
+  "amount": 919,
+  "paymentMode": "Cash",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-25",
+  "type": "Staff expenses",
+  "amount": 50000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-25",
+  "type": "Parts",
+  "amount": 29900,
+  "paymentMode": "Cash",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-26",
+  "type": "Parts",
+  "amount": 350000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-26",
+  "type": "Transport",
+  "amount": 26000,
+  "paymentMode": "Cash",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-27",
+  "type": "Workshop expenses",
+  "amount": 97400,
+  "paymentMode": "Cash",
+  "recipient": "Online",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-27",
+  "type": "Daily expenses",
+  "amount": 73000,
+  "paymentMode": "Cash",
+  "recipient": "Tea boy",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-27",
+  "type": "Job work",
+  "amount": 70000,
+  "paymentMode": "Cash",
+  "recipient": "Aditya Tyre Point",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-27",
+  "type": "Transport",
+  "amount": 18100,
+  "paymentMode": "Cash",
+  "recipient": "Transport",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-27",
+  "type": "Parts",
+  "amount": 420000,
+  "paymentMode": "Cash",
+  "recipient": "Prakash Automobile",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-27",
+  "type": "Workshop expenses",
+  "amount": 255300,
+  "paymentMode": "Cash",
+  "recipient": "MAX Lubricants",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-29",
+  "type": "Workshop expenses",
+  "amount": 40000,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-29",
+  "type": "Transport",
+  "amount": 6000,
+  "paymentMode": "Cash",
+  "recipient": "All",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-29",
+  "type": "Job work",
+  "amount": 300000,
+  "paymentMode": "Cash",
+  "recipient": "Chemmal A/C",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-29",
+  "type": "Staff expenses",
+  "amount": 50000,
+  "paymentMode": "Cash",
+  "recipient": "Saini saha",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-30",
+  "type": "Marketing",
+  "amount": 7500,
+  "paymentMode": "Cash",
+  "recipient": "Local shop",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-30",
+  "type": "Daily expenses",
+  "amount": 36000,
+  "paymentMode": "Cash",
+  "recipient": "All",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-30",
+  "type": "Parts",
+  "amount": 2267500,
+  "paymentMode": "Cash",
+  "recipient": "Padmavathi Agencies",
+  "paidBy": "Admin"
+ },
+ {
+  "date": "2026-06-30",
+  "type": "Job work",
+  "amount": 20000,
+  "paymentMode": "Cash",
+  "recipient": "All",
+  "paidBy": "Admin"
+ }
+]

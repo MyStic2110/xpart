@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "client_type" text DEFAULT 'customer' NOT NULL;

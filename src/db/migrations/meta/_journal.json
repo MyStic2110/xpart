@@ -1,0 +1,202 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1782727053671,
+      "tag": "0000_gigantic_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782757009298,
+      "tag": "0001_motionless_speed_demon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782758250478,
+      "tag": "0002_flat_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782759240356,
+      "tag": "0003_flowery_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782760862964,
+      "tag": "0004_strong_dormammu",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782762015558,
+      "tag": "0005_drop_vehicle_make_model_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782762058054,
+      "tag": "0006_add_vehicle_make_model_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782764239391,
+      "tag": "0007_add_sales_actions_appointments",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782766542907,
+      "tag": "0008_add_connectors",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782793278414,
+      "tag": "0009_add_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782793784747,
+      "tag": "0010_add_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782794217733,
+      "tag": "0011_add_enquiries",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782794657692,
+      "tag": "0012_add_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782798430770,
+      "tag": "0013_little_blackheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782798538307,
+      "tag": "0014_lame_sharon_ventura",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782800937821,
+      "tag": "0015_awesome_shiva",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782803875986,
+      "tag": "0016_oval_union_jack",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782806174990,
+      "tag": "0017_sour_bloodstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782807137532,
+      "tag": "0018_special_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782812622662,
+      "tag": "0019_loyalty_points_redeem",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782826647017,
+      "tag": "0020_branch_system_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782834935511,
+      "tag": "0021_expenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1782837355055,
+      "tag": "0022_expenses_modetext_droppaidby",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1782837395073,
+      "tag": "0023_expenses_add_paidby",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782971865814,
+      "tag": "0024_unusual_dexter_bennett",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783361124875,
+      "tag": "0025_client-type",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1783367343573,
+      "tag": "0026_branch-cameras",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1783401906522,
+      "tag": "0027_add_vendor_and_credit_billing",
+      "breakpoints": true
+    }
+  ]
+}
