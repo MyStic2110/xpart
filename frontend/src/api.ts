@@ -959,6 +959,135 @@ export interface VendorLedgerResponse {
   };
 }
 
+// --- Diagnostics (PDF report intelligence) ---
+export interface DiagnosticSummary {
+  totalReports: number;
+  activeFaults: number;
+  criticalFaults: number;
+  vehiclesNeedingAttention: number;
+  avgHealthScore: number | null;
+  needsAiCount: number;
+  topCodes: { code: string; description: string; count: number }[];
+}
+
+export interface DiagnosticReportListItem {
+  id: string;
+  branchId: string | null;
+  vehicleId: string | null;
+  clientId: string | null;
+  fileName: string;
+  fileUrl: string;
+  reportType: string;
+  status: "processed" | "needs_ai" | "failed";
+  engine: "parser" | "ocr" | "parser+llm" | "ocr+llm" | null;
+  reportDate: string | null;
+  odometerKm: number | null;
+  plateNumber: string | null;
+  clientName: string | null;
+  healthScore: number | null;
+  summary: string | null;
+  createdAt: string;
+  faultCount: number;
+  activeFaults: number;
+  criticalFaults: number;
+}
+
+export interface DiagnosticFault {
+  id: string;
+  code: string;
+  description: string;
+  system: string;
+  ecu: string | null;
+  status: "active" | "pending" | "history" | "permanent" | "unknown";
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  isRecurring: boolean;
+}
+
+export interface DiagnosticRootCause {
+  title: string;
+  confidence: "high" | "medium";
+  explanation: string;
+  explains: string[];
+  repairSequence: string[];
+}
+
+export interface DiagnosticRecommendation {
+  action: string;
+  priority: "critical" | "high" | "medium" | "low";
+  codes: string[];
+  estCostMin: number; // paise
+  estCostMax: number;
+  laborHours: number;
+}
+
+export interface DiagnosticExtraction {
+  vehicle: {
+    vin?: string | null;
+    plateNumber?: string | null;
+    make?: string | null;
+    model?: string | null;
+    fuelType?: string | null;
+    year?: number | null;
+    odometerKm?: number | null;
+  };
+  reportDate?: string | null;
+  workshopName?: string | null;
+  technicianName?: string | null;
+  sensors: { name: string; value: string; unit?: string | null }[];
+  freezeFrames?: { code?: string | null; values: { name: string; value: string; unit?: string | null }[] }[];
+  remarks?: string[];
+  partsReplaced?: string[];
+}
+
+export interface DiagnosticComparison {
+  previousReportId: string;
+  previousDate: string;
+  previousHealthScore: number | null;
+  healthDelta: number | null;
+  newCodes: string[];
+  resolvedCodes: string[];
+  recurringCodes: string[];
+}
+
+export interface DiagnosticReportDetail {
+  report: {
+    id: string;
+    fileUrl: string;
+    fileName: string;
+    textFileUrl: string | null;
+    reportType: string;
+    status: "processed" | "needs_ai" | "failed";
+    engine: "parser" | "ocr" | "parser+llm" | "ocr+llm" | null;
+    reportDate: string | null;
+    odometerKm: number | null;
+    vin: string | null;
+    plateNumber: string | null;
+    workshopName: string | null;
+    technicianName: string | null;
+    extracted: DiagnosticExtraction | null;
+    healthScore: number | null;
+    systemScores: Record<string, number> | null;
+    rootCauses: DiagnosticRootCause[] | null;
+    recommendations: DiagnosticRecommendation[] | null;
+    summary: string | null;
+    aiAnalysis: Record<string, unknown> | null;
+    createdAt: string;
+    vehicleId: string | null;
+  };
+  faults: DiagnosticFault[];
+  vehicle: { id: string; plateNumber: string; year: number | null; fuelType: string | null } | null;
+  client: { id: string; name: string; phone: string } | null;
+  comparison: DiagnosticComparison | null;
+  statusDetail?: string | null;
+}
+
+export interface DiagnosticTimeline {
+  vehicle: { id: string; plateNumber: string };
+  reports: (DiagnosticReportDetail["report"] & { faults: DiagnosticFault[] })[];
+  healthTrend: { date: string; score: number }[];
+  recurringCodes: { code: string; occurrences: number; description: string }[];
+}
+
 export const api = {
   signup: (input: SignupInput) =>
     request<{ token: string }>("/auth/signup", { method: "POST", body: JSON.stringify(input) }),
@@ -1177,6 +1306,37 @@ export const api = {
   updateExpense: (id: string, input: Partial<ExpenseInput>) =>
     request<Expense>(`/expenses/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteExpense: (id: string) => request<{ success: true }>(`/expenses/${id}`, { method: "DELETE" }),
+  diagnosticsSummary: (branchId?: string) =>
+    request<DiagnosticSummary>(`/diagnostics/summary${branchId ? `?branchId=${branchId}` : ""}`),
+  listDiagnosticReports: (params?: { branchId?: string; vehicleId?: string; clientId?: string; status?: string }) => {
+    const p = new URLSearchParams();
+    Object.entries(params ?? {}).forEach(([k, v]) => v && p.set(k, v));
+    const qs = p.toString();
+    return request<DiagnosticReportListItem[]>(`/diagnostics/reports${qs ? `?${qs}` : ""}`);
+  },
+  getDiagnosticReport: (id: string) => request<DiagnosticReportDetail>(`/diagnostics/reports/${id}`),
+  // Fields are appended BEFORE the file so @fastify/multipart exposes them on file.fields.
+  uploadDiagnosticReport: async (file: File, fields: { branchId?: string; vehicleId?: string; reportType?: string }): Promise<DiagnosticReportDetail> => {
+    const token = localStorage.getItem("token");
+    const formData = new FormData();
+    Object.entries(fields).forEach(([k, v]) => v && formData.append(k, v));
+    formData.append("file", file);
+    const res = await fetch(`${BASE}/diagnostics/reports`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || data.error || "upload failed");
+    return data;
+  },
+  reprocessDiagnosticReport: (id: string, useOcr?: boolean) =>
+    request<DiagnosticReportDetail>(`/diagnostics/reports/${id}/reprocess`, {
+      method: "POST",
+      body: JSON.stringify({ useOcr: useOcr ?? false }),
+    }),
+  deleteDiagnosticReport: (id: string) => request<{ success: true }>(`/diagnostics/reports/${id}`, { method: "DELETE" }),
+  vehicleDiagnosticTimeline: (vehicleId: string) => request<DiagnosticTimeline>(`/diagnostics/vehicles/${vehicleId}/timeline`),
   getReport: <T>(reportType: string, params: { branchId?: string; userId?: string; startDate?: string; endDate?: string }) => {
     const cleanParams: Record<string, string> = {};
     Object.entries(params).forEach(([k, v]) => {

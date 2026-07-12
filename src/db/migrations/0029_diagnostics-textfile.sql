@@ -1,0 +1,1 @@
+ALTER TABLE "diagnostic_reports" ADD COLUMN "text_file_url" text;
