@@ -15,3 +15,4 @@ export * from "./offers";
 export * from "./notifications";
 export * from "./expenses";
 export * from "./cameras";
+export * from "./diagnostics";

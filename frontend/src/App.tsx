@@ -30,6 +30,8 @@ import SettingsDashboard from "./pages/SettingsDashboard";
 import Offers from "./pages/Offers";
 import Reports from "./pages/Reports";
 import Expenses from "./pages/Expenses";
+import Diagnostics from "./pages/Diagnostics";
+import DiagnosticReportPage from "./pages/DiagnosticReport";
 
 function isAuthenticated() {
   return Boolean(localStorage.getItem("token"));
@@ -288,6 +290,22 @@ export default function App() {
           element={
             <RequireAuth>
               <Expenses />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/diagnostics"
+          element={
+            <RequireAuth>
+              <Diagnostics />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/diagnostics/:id"
+          element={
+            <RequireAuth>
+              <DiagnosticReportPage />
             </RequireAuth>
           }
         />

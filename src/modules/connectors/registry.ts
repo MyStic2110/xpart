@@ -39,6 +39,43 @@ export const INDIAN_LANGUAGES: { value: string; label: string }[] = [
 // for click-to-call, WhatsApp Business API (Meta Cloud + Gupshup BSP) for messaging.
 export const PROVIDER_REGISTRY: ProviderDef[] = [
   {
+    provider: "mistral_ocr",
+    name: "Mistral OCR (Document AI)",
+    category: "automation",
+    region: "Global",
+    description:
+      "OCR engine for the Diagnostics module — converts scanned diagnostic PDFs into text (tables preserved as markdown) so fault codes, vehicle info and sensor values can be extracted. Searchable PDFs work without this; add a key to unlock scanned reports.",
+    capabilities: ["ocr"],
+    fields: [
+      { key: "apiKey", label: "Mistral API Key", type: "password", secret: true, placeholder: "Enter Mistral API key" },
+      {
+        key: "model",
+        label: "OCR model",
+        type: "select",
+        placeholder: "Pick a model",
+        options: [{ value: "mistral-ocr-latest", label: "mistral-ocr-latest (recommended)" }],
+      },
+    ],
+  },
+  {
+    provider: "openrouter",
+    name: "OpenRouter (Any LLM)",
+    category: "automation",
+    region: "Global",
+    description:
+      "LLM enrichment for the Diagnostics module — sends the extracted report text (never the PDF) to any model on OpenRouter to catch vehicle details, fault descriptions, technician remarks and parts the deterministic parser missed. Parser results always win on conflicts.",
+    capabilities: ["llm"],
+    fields: [
+      { key: "apiKey", label: "OpenRouter API Key", type: "password", secret: true, placeholder: "sk-or-…" },
+      {
+        key: "model",
+        label: "Model ID (any OpenRouter model)",
+        type: "text",
+        placeholder: "e.g. google/gemini-2.5-flash, anthropic/claude-sonnet-4.5, meta-llama/llama-4-maverick",
+      },
+    ],
+  },
+  {
     provider: "sarvam_shilpa",
     name: "Shilpa AI Voice Agent (Sarvam AI)",
     category: "automation",

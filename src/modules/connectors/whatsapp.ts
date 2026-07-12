@@ -48,15 +48,74 @@ export async function sendWhatsApp(orgId: string, toPhone: string, message: stri
     return { sent: false, provider: null, reason: "connector_not_configured", message };
   }
 
-  // TODO(activation): real provider call goes here, using conn.config.
-  //  - whatsapp_cloud: POST https://graph.facebook.com/v19.0/{phoneNumberId}/messages
-  //      headers: Authorization: Bearer {accessToken}
-  //      body: { messaging_product: "whatsapp", to: "91" + toPhone, type: "text", text: { body: message } }
-  //  - gupshup: POST https://api.gupshup.io/wa/api/v1/msg
-  //      headers: apikey: {apiKey}
-  //      form: channel=whatsapp, source={sourceNumber}, destination=91{toPhone},
-  //            message={"type":"text","text":message}, src.name={appName}
-  console.log(`[whatsapp:${conn.provider}] queued (adapter not activated) → ${toPhone}: ${message.slice(0, 80)}...`);
+  const config = conn.config as Record<string, string>;
+
+  try {
+    if (conn.provider === "whatsapp_cloud") {
+      const { phoneNumberId, accessToken } = config;
+      if (!accessToken) {
+        console.log(`[whatsapp_cloud] accessToken not configured yet — skipping send to ${toPhone}`);
+        return { sent: false, provider: conn.provider, reason: "adapter_not_activated", message };
+      }
+
+      const res = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: `91${toPhone}`,
+          type: "text",
+          text: { body: message },
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`[whatsapp_cloud] send failed (${res.status}):`, errBody);
+        return { sent: false, provider: conn.provider, reason: "adapter_not_activated", message };
+      }
+
+      console.log(`[whatsapp_cloud] ✓ sent to ${toPhone}`);
+      return { sent: true, provider: conn.provider, message };
+
+    } else if (conn.provider === "gupshup") {
+      const { apiKey, sourceNumber, appName } = config;
+      if (!apiKey) {
+        console.log(`[gupshup] apiKey not configured yet — skipping send to ${toPhone}`);
+        return { sent: false, provider: conn.provider, reason: "adapter_not_activated", message };
+      }
+
+      const form = new URLSearchParams();
+      form.append("channel", "whatsapp");
+      form.append("source", sourceNumber);
+      form.append("destination", `91${toPhone}`);
+      form.append("message", JSON.stringify({ type: "text", text: message }));
+      form.append("src.name", appName);
+
+      const res = await fetch("https://api.gupshup.io/wa/api/v1/msg", {
+        method: "POST",
+        headers: { apikey: apiKey },
+        body: form,
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`[gupshup] send failed (${res.status}):`, errBody);
+        return { sent: false, provider: conn.provider, reason: "adapter_not_activated", message };
+      }
+
+      console.log(`[gupshup] ✓ sent to ${toPhone}`);
+      return { sent: true, provider: conn.provider, message };
+    }
+  } catch (err) {
+    // Network error, DNS failure, timeout — never break the calling business flow
+    console.error(`[whatsapp:${conn.provider}] send error to ${toPhone}:`, err);
+    return { sent: false, provider: conn.provider, reason: "adapter_not_activated", message };
+  }
+
   return { sent: false, provider: conn.provider, reason: "adapter_not_activated", message };
 }
 

@@ -32,6 +32,7 @@ import { reportsRoutes } from "@/modules/reports/routes";
 import { expenseRoutes } from "@/modules/expenses/routes";
 import { calendarRoutes } from "@/modules/calendar/routes";
 import { cameraRoutes } from "@/modules/cameras/routes";
+import { diagnosticsRoutes } from "@/modules/diagnostics/routes";
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
@@ -74,6 +75,7 @@ export async function buildApp() {
   await app.register(expenseRoutes);
   await app.register(calendarRoutes);
   await app.register(cameraRoutes);
+  await app.register(diagnosticsRoutes);
 
   return app;
 }

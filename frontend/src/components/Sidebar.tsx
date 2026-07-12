@@ -29,6 +29,7 @@ import {
   Cctv,
   LogOut,
   Bell,
+  Stethoscope,
 } from "lucide-react";
 import { api, Notification } from "../api";
 
@@ -37,6 +38,7 @@ const NAV = [
   { label: "Planner", icon: CalendarDays, to: "/calendar" },
   { label: "Enquiry", icon: Inbox, to: "/enquiry" },
   { label: "Job Card", icon: ClipboardList, to: "/job-cards" },
+  { label: "Diagnostics", icon: Stethoscope, to: "/diagnostics" },
   { label: "Client 360°", icon: Target, to: "/client-360" },
   { label: "Billing", icon: Receipt, to: "/billing" },
   { label: "Clients", icon: Users, to: "/clients" },
