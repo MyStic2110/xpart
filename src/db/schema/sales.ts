@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, timestamp, integer, pgEnum, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, date, timestamp, integer, pgEnum, unique, index } from "drizzle-orm/pg-core";
 import { organizations, branches } from "./org";
 import { clients, vehicles } from "./client";
 import { services } from "./catalog";
@@ -24,7 +24,11 @@ export const appointments = pgTable("appointments", {
   status: appointmentStatusEnum("status").notNull().default("scheduled"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("appointments_org_idx").on(t.orgId),
+  index("appointments_branch_idx").on(t.branchId),
+  index("appointments_date_idx").on(t.scheduledDate),
+]);
 
 export const salesActionStatusEnum = pgEnum("sales_action_status", [
   "pending", // due, not yet actioned
@@ -60,7 +64,11 @@ export const salesActions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   // one open recurrence-tracking row per client+service+cycle
-  (t) => [unique().on(t.clientId, t.serviceId, t.dueDate)]
+  (t) => [
+    unique().on(t.clientId, t.serviceId, t.dueDate),
+    index("sales_actions_org_idx").on(t.orgId),
+    index("sales_actions_due_idx").on(t.dueDate)
+  ]
 );
 
 export const salesActionLogs = pgTable("sales_action_logs", {

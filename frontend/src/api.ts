@@ -276,7 +276,6 @@ export interface Client360 {
   totalSpendings: number;
   membership: string | null;
   activePackages: string | null;
-  lastFeedback: string | null;
   walletBalance: number;
   rewardPoints: number;
   gender: string;
@@ -419,7 +418,7 @@ export interface ClientVisit {
 export interface ClientDetail {
   client: ClientRecord & { createdAt: string };
   summary: Client360;
-  vehicles: { id: string; plateNumber: string; segment: string | null }[];
+  vehicles: { id: string; plateNumber: string; segment: string | null; images?: string[] | null; insuranceExpiryDate?: string | null }[];
   visits: ClientVisit[];
   appointments: {
     id: string;
@@ -503,24 +502,7 @@ export interface PurchaseInput {
   items: { productName: string; quantity: number; unit?: string; purchasePrice?: number; salePrice: number; vehicleId?: string | null; expiryDate?: string }[];
 }
 
-export interface Feedback {
-  id: string;
-  source: "in_app" | "google" | "whatsapp" | "manual";
-  reviewerName: string | null;
-  rating: number | null;
-  comment: string | null;
-  reply: string | null;
-  reviewDate: string | null;
-  createdAt: string;
-}
 
-export interface FeedbackSummary {
-  total: number;
-  avgRating: number;
-  positive: number;
-  negative: number;
-  googleCount: number;
-}
 
 export type LeadStatus = "pending" | "contacted" | "follow_up" | "converted" | "lost";
 
@@ -901,6 +883,15 @@ export interface Vendor {
   contactNumber: string;
   email: string | null;
   address: string | null;
+  gstNumber?: string | null;
+  yearsInBusiness?: number | null;
+  rating?: string | null;
+  genuineCertification?: boolean;
+  returnPolicy?: string | null;
+  specialization?: string | null;
+  latitude?: string | null;
+  longitude?: string | null;
+  googleMapsUrl?: string | null;
   createdAt: string;
 }
 
@@ -909,6 +900,84 @@ export interface VendorInput {
   contactNumber: string;
   email?: string;
   address?: string;
+  gstNumber?: string;
+  yearsInBusiness?: number;
+  rating?: string;
+  genuineCertification?: boolean;
+  returnPolicy?: string;
+  specialization?: string;
+  latitude?: string;
+  longitude?: string;
+  googleMapsUrl?: string;
+}
+
+export interface RfqItem {
+  partName: string;
+  qty: string;
+  oemNumber?: string;
+  preferredBrand?: string;
+}
+
+export interface PartsRequestInput {
+  vehicleInfo: string;
+  urgency: "immediate" | "today" | "week";
+  deliveryLocation: string;
+  maxBudget?: number | "";
+  isEmergency?: boolean;
+  broadcastWhatsApp?: boolean;
+  searchRadiusKm?: number;
+  items: RfqItem[];
+}
+
+export interface PartsQuote {
+  id: string;
+  requestId: string;
+  vendorId: string;
+  vendorName: string;
+  vendorRating: string | null;
+  vendorGst: string | null;
+  vendorYears: number | null;
+  vendorSpecialization: string | null;
+  vendorGenuine: boolean;
+  vendorReturn: string | null;
+  vendorMapsUrl: string | null;
+  isAvailable: boolean;
+  brand: string;
+  price: number; // in paise
+  deliveryTime: string;
+  warranty: string | null;
+  contactDetails: string | null;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: string;
+}
+
+export interface PartsRequest {
+  id: string;
+  orgId: string;
+  branchId: string;
+  vehicleInfo: string;
+  partName: string;
+  oemNumber: string | null;
+  qty: number;
+  urgency: "immediate" | "today" | "week";
+  deliveryLocation: string;
+  preferredBrand: string | null;
+  maxBudget: number | null; // in paise
+  status: "broadcasted" | "quotes_received" | "selected" | "completed" | "cancelled";
+  isEmergency: boolean;
+  broadcastWhatsApp: boolean;
+  searchRadiusKm: number;
+  items?: RfqItem[] | null;
+  createdAt: string;
+  quotes?: PartsQuote[];
+}
+
+export interface RfqHistoryStats {
+  totalRfqs: number;
+  completedRfqs: number;
+  avgBudget: number;
+  avgResponseTimeMinutes: number;
+  savingsTotal: number;
 }
 
 export interface VendorLedgerItem {
@@ -983,6 +1052,7 @@ export interface DiagnosticReportListItem {
   reportDate: string | null;
   odometerKm: number | null;
   plateNumber: string | null;
+  fuelType: string | null;
   clientName: string | null;
   healthScore: number | null;
   summary: string | null;
@@ -1089,6 +1159,7 @@ export interface DiagnosticTimeline {
 }
 
 export const api = {
+  rawRequest: <T>(path: string, options?: RequestInit) => request<T>(path, options),
   signup: (input: SignupInput) =>
     request<{ token: string }>("/auth/signup", { method: "POST", body: JSON.stringify(input) }),
   login: (phone: string, password: string) =>
@@ -1111,6 +1182,12 @@ export const api = {
   updateVendor: (id: string, input: Partial<VendorInput>) =>
     request<Vendor>(`/vendors/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteVendor: (id: string) => request<{ success: true }>(`/vendors/${id}`, { method: "DELETE" }),
+  listRfqs: () => request<PartsRequest[]>("/vendors/rfqs"),
+  createRfq: (input: PartsRequestInput) => request<PartsRequest>("/vendors/rfqs", { method: "POST", body: JSON.stringify(input) }),
+  selectQuote: (id: string, quoteId: string) => request<{ success: boolean; acceptedQuote: PartsQuote }>(`/vendors/rfqs/${id}/select`, { method: "POST", body: JSON.stringify({ quoteId }) }),
+  completeRfq: (id: string) => request<PartsRequest>(`/vendors/rfqs/${id}/complete`, { method: "POST" }),
+  reorderRfq: (id: string) => request<PartsRequest>(`/vendors/rfqs/${id}/reorder`, { method: "POST" }),
+  getRfqStats: () => request<RfqHistoryStats>("/vendors/rfqs/history-stats"),
   getVendorLedger: (id: string, params?: { search?: string; period?: string; page?: number; limit?: number }) => {
     const p = new URLSearchParams();
     if (params?.search) p.set("search", params.search);
@@ -1125,12 +1202,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ vehicleId, amount, paymentMode }),
     }),
-  listFeedback: (source?: string) => request<Feedback[]>(`/feedback${source && source !== "all" ? `?source=${source}` : ""}`),
-  feedbackSummary: () => request<FeedbackSummary>("/feedback/summary"),
-  createFeedback: (input: { source: string; reviewerName?: string; rating?: number; comment?: string; reviewDate?: string }) =>
-    request<Feedback>("/feedback", { method: "POST", body: JSON.stringify(input) }),
-  replyFeedback: (id: string, reply: string) =>
-    request<Feedback>(`/feedback/${id}/reply`, { method: "PATCH", body: JSON.stringify({ reply }) }),
   listEnquiries: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : "";
     return request<Enquiry[]>(`/enquiries${qs}`);
@@ -1219,6 +1290,12 @@ export const api = {
   getCalendarDay: (date: string, branchId?: string) =>
     request<CalendarDayDetail>(`/calendar/day?date=${date}${branchId ? `&branchId=${branchId}` : ""}`),
   getClientDetail: (id: string) => request<ClientDetail>(`/clients/${id}`),
+  updateVehicle: (id: string, input: { images?: string[]; insuranceExpiryDate?: string | null }) =>
+    request<{ id: string; images: string[] | null; insuranceExpiryDate: string | null }>(`/vehicles/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  triggerInsuranceReminders: () => request<{ success: boolean; processed: number; details: any[] }>("/vehicles/insurance-reminders/trigger", { method: "POST" }),
   getClient360: (id: string) => request<Client360>(`/clients/${id}/360`),
   listServices: () => request<Service[]>("/services"),
   createJobCard: (input: CreateJobCardInput) =>

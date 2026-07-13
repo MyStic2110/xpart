@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { signupOrg, login, AuthError } from "./service";
+import { schemaDoc } from "@/utils/swagger";
 
 const signupSchema = z.object({
   orgName: z.string().min(2),
@@ -17,7 +18,13 @@ const loginSchema = z.object({
 });
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post("/auth/signup", async (req, reply) => {
+  app.post("/auth/signup", {
+    ...schemaDoc({
+      tags: ["Auth"],
+      summary: "Register new organization, branch, and owner account",
+      body: signupSchema,
+    })
+  }, async (req, reply) => {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
@@ -30,7 +37,13 @@ export async function authRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post("/auth/login", async (req, reply) => {
+  app.post("/auth/login", {
+    ...schemaDoc({
+      tags: ["Auth"],
+      summary: "Login credentials auth, returns token and roles info",
+      body: loginSchema,
+    })
+  }, async (req, reply) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 

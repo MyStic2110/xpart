@@ -6,7 +6,7 @@ export const notifications = pgTable("notifications", {
   orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   message: text("message").notNull(),
-  type: text("type").notNull(), // enquiry | jobcard | payment | feedback | stock
+  type: text("type").notNull(), // enquiry | jobcard | payment | stock
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

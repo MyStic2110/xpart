@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, pgEnum, index } from "drizzle-orm/pg-core";
 import { organizations, branches } from "./org";
 import { clients, vehicles } from "./client";
 import { jobCards } from "./jobcard";
@@ -22,7 +22,10 @@ export const invoices = pgTable("invoices", {
   status: invoiceStatusEnum("status").notNull().default("draft"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   finalizedAt: timestamp("finalized_at", { withTimezone: true }),
-});
+}, (t) => [
+  index("invoices_org_idx").on(t.orgId),
+  index("invoices_branch_idx").on(t.branchId),
+]);
 
 export const payments = pgTable("payments", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -31,4 +34,7 @@ export const payments = pgTable("payments", {
   amount: integer("amount").notNull(),
   txnRef: text("txn_ref"),
   paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("payments_invoice_idx").on(t.invoiceId),
+  index("payments_paid_at_idx").on(t.paidAt),
+]);

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Car, Wallet, Star, Phone, MessageCircle, Tag, Gift } from "lucide-react";
+import { ArrowLeft, Car, Wallet, Star, Phone, MessageCircle, Tag, Gift, Plus, Upload, X, Image, Loader2 } from "lucide-react";
 import { api, ClientDetail } from "../api";
 import Sidebar from "../components/Sidebar";
 import Skeleton from "../components/Skeleton";
@@ -31,6 +31,64 @@ export default function ClientDetailPage() {
   const [orgName, setOrgName] = useState("Workspace");
   const [detail, setDetail] = useState<ClientDetail | null>(null);
   const [error, setError] = useState("");
+  const [uploadingVehicleId, setUploadingVehicleId] = useState<string | null>(null);
+  const [updatingExpiryVehicleId, setUpdatingExpiryVehicleId] = useState<string | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" }>({ show: false, message: "", type: "success" });
+
+  function showToast(message: string, type: "success" | "error" = "success") {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 4000);
+  }
+
+  async function handleVehicleImageUpload(vehicleId: string, file: File) {
+    setUploadingVehicleId(vehicleId);
+    try {
+      const res = await api.uploadFile(file);
+      const vehicle = detail?.vehicles.find((v) => v.id === vehicleId);
+      const currentImages = vehicle?.images ?? [];
+      const updatedImages = [...currentImages, res.url];
+      await api.updateVehicle(vehicleId, { images: updatedImages });
+      const updatedDetail = await api.getClientDetail(id);
+      setDetail(updatedDetail);
+      showToast("Picture uploaded successfully!", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed", "error");
+    } finally {
+      setUploadingVehicleId(null);
+    }
+  }
+
+  async function handleVehicleImageRemove(vehicleId: string, imageUrl: string) {
+    if (!confirm("Are you sure you want to remove this picture?")) return;
+    try {
+      const vehicle = detail?.vehicles.find((v) => v.id === vehicleId);
+      const currentImages = vehicle?.images ?? [];
+      const updatedImages = currentImages.filter((img) => img !== imageUrl);
+      await api.updateVehicle(vehicleId, { images: updatedImages });
+      const updatedDetail = await api.getClientDetail(id);
+      setDetail(updatedDetail);
+      showToast("Picture removed successfully!", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Remove failed", "error");
+    }
+  }
+
+  async function handleInsuranceExpirySave(vehicleId: string, dateStr: string | null) {
+    setUpdatingExpiryVehicleId(vehicleId);
+    try {
+      await api.updateVehicle(vehicleId, { insuranceExpiryDate: dateStr || null });
+      const updatedDetail = await api.getClientDetail(id);
+      setDetail(updatedDetail);
+      showToast("Insurance expiry date updated!", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to update expiry date", "error");
+    } finally {
+      setUpdatingExpiryVehicleId(null);
+    }
+  }
 
   useEffect(() => {
     api.me().then((me) => setOrgName(me.org.name)).catch(() => {});
@@ -346,18 +404,100 @@ export default function ClientDetailPage() {
                   )}
 
                   <div className="rounded-xl2 border border-slate-100 bg-white p-5 shadow-card">
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-4">
                       <Car size={15} className="text-slate-400" />
                       <h3 className="text-[14px] font-semibold text-charcoal-900">Vehicles</h3>
                     </div>
                     {detail.vehicles.length === 0 ? (
                       <p className="text-sm text-slate-400">No vehicles on file.</p>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-4">
                         {detail.vehicles.map((v) => (
-                          <div key={v.id} className="flex items-center justify-between text-[13px]">
-                            <span className="font-medium text-charcoal-900">{v.plateNumber}</span>
-                            <span className="text-slate-400">{v.segment ?? ""}</span>
+                          <div key={v.id} className="border-b border-slate-100 last:border-0 pb-4 last:pb-0">
+                            <div className="flex items-center justify-between text-[13px] mb-2">
+                              <span className="font-semibold text-charcoal-900 tracking-wide">{v.plateNumber}</span>
+                              <span className="text-slate-400 text-[12px]">{v.segment ?? ""}</span>
+                            </div>
+
+                            {/* Pictures List */}
+                            {(v.images ?? []).length > 0 && (
+                              <div className="mb-3 space-y-1.5">
+                                {(v.images ?? []).map((imgUrl, idx) => (
+                                  <div key={imgUrl} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-1.5 text-[12.5px]">
+                                    <span className="font-medium text-slate-500">Picture {idx + 1}</span>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => setPreviewImageUrl(imgUrl)}
+                                        className="rounded bg-accent-500/10 px-2 py-1 text-[11px] font-semibold text-accent-700 hover:bg-accent-500/20"
+                                      >
+                                        View
+                                      </button>
+                                      <button
+                                        onClick={() => handleVehicleImageRemove(v.id, imgUrl)}
+                                        className="rounded bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Upload Button */}
+                            <div className="mb-4">
+                              <label className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-3 py-2 text-[12px] font-medium text-slate-500 hover:bg-slate-50 hover:border-slate-300 cursor-pointer transition-colors">
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  className="hidden"
+                                  disabled={uploadingVehicleId != null}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleVehicleImageUpload(v.id, file);
+                                  }}
+                                />
+                                {uploadingVehicleId === v.id ? (
+                                  <>
+                                    <Loader2 size={13} className="animate-spin text-slate-400" />
+                                    <span>Uploading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload size={13} className="text-slate-400" />
+                                    <span>Upload Car Picture</span>
+                                  </>
+                                )}
+                              </label>
+                              <p className="mt-1 text-[10px] text-slate-400">Supported: JPEG, PNG, WebP (Max 5MB)</p>
+                            </div>
+
+                            {/* Insurance Date Field */}
+                            <div className="mt-3">
+                              <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                                Insurance Expiry
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="date"
+                                  value={v.insuranceExpiryDate || ""}
+                                  disabled={updatingExpiryVehicleId === v.id}
+                                  onChange={(e) => handleInsuranceExpirySave(v.id, e.target.value)}
+                                  className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12.5px] text-charcoal-900 focus:border-accent-500 focus:outline-none disabled:opacity-50"
+                                />
+                                {updatingExpiryVehicleId === v.id && (
+                                  <Loader2 size={13} className="animate-spin text-slate-400 shrink-0" />
+                                )}
+                              </div>
+                              <div className="mt-2 rounded-lg bg-slate-50 border border-slate-100 p-2.5 text-[10px] text-slate-500 leading-normal">
+                                <span className="font-semibold text-accent-700">Auto WhatsApp Reminders:</span>
+                                <ul className="list-disc list-inside mt-1 space-y-1">
+                                  <li><span className="font-medium text-charcoal-900">30 days before:</span> early renew reminder with custom talktrack</li>
+                                  <li><span className="font-medium text-charcoal-900">7 days before:</span> lapse notice reminder</li>
+                                  <li><span className="font-medium text-charcoal-900">On expiry:</span> policy expired warning</li>
+                                </ul>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -446,6 +586,53 @@ export default function ClientDetailPage() {
           )}
         </div>
       </main>
+
+      {/* Lightbox Modal */}
+      {previewImageUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-950/40 p-4 animate-fadeIn">
+          <div className="fixed inset-0" onClick={() => setPreviewImageUrl(null)} />
+          <div className="relative max-w-3xl max-h-[85vh] bg-white rounded-xl overflow-hidden shadow-elevated animate-slideUp z-10 flex flex-col w-full">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-slate-50">
+              <span className="text-[12px] font-semibold text-charcoal-900">Vehicle Picture Preview</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewImageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+                >
+                  Open in new tab
+                </a>
+                <button onClick={() => setPreviewImageUrl(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 transition-colors">
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-auto bg-slate-950 flex items-center justify-center min-h-[300px]">
+              <img
+                src={previewImageUrl}
+                alt="Preview"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                onError={() => {
+                  showToast("Failed to load image. Try opening in a new tab.", "error");
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3.5 text-[13px] font-medium shadow-elevated animate-slideUp text-white ${
+          toast.type === "success" ? "bg-emerald-600" : "bg-red-600"
+        }`}>
+          <span>{toast.message}</span>
+          <button onClick={() => setToast((prev) => ({ ...prev, show: false }))} className="ml-1 hover:opacity-85 transition-opacity">
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

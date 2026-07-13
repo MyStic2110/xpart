@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, timestamp, integer, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, date, timestamp, integer, pgEnum, index } from "drizzle-orm/pg-core";
 import { organizations, branches } from "./org";
 import { clients, vehicles } from "./client";
 import { users } from "./identity";
@@ -33,7 +33,11 @@ export const jobCards = pgTable("job_cards", {
   source: text("source").notNull().default("walkin"), // walkin | whatsapp | appointment | anpr
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
-});
+}, (t) => [
+  index("job_cards_org_idx").on(t.orgId),
+  index("job_cards_branch_idx").on(t.branchId),
+  index("job_cards_date_idx").on(t.jobDate),
+]);
 
 // many-to-many: a job card can have multiple mechanics (seen in real data)
 export const jobCardMechanics = pgTable("job_card_mechanics", {

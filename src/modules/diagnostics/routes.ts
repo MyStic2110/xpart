@@ -2,12 +2,14 @@ import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
-import { eq, and, sql, desc, asc } from "drizzle-orm";
+import { eq, and, or, isNull, sql, desc, asc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { diagnosticReports, diagnosticFaults, vehicles, clients } from "@/db/schema";
 import { requireAuth, requireRole } from "@/middleware/auth";
 import { runExtraction, matchVehicle, analyzeAndPersist, compareWithPrevious } from "./service";
 import type { Extraction } from "./extract";
+import { schemaDoc } from "@/utils/swagger";
+import { z } from "zod";
 
 const UPLOAD_DIR = path.resolve("uploads");
 const MAX_PDF_BYTES = 15 * 1024 * 1024; // diagnostic PDFs run bigger than photos
@@ -34,7 +36,14 @@ const canDelete = [requireAuth, requireRole("org_owner", "admin", "branch_manage
 export async function diagnosticsRoutes(app: FastifyInstance) {
   // Upload a diagnostic PDF and process it synchronously (parser is instant;
   // the AI path takes a few seconds — acceptable for a counter workflow).
-  app.post("/diagnostics/reports", { preHandler: requireAuth }, async (req, reply) => {
+  app.post("/diagnostics/reports", {
+    preHandler: requireAuth,
+    ...schemaDoc({
+      tags: ["Diagnostics"],
+      summary: "Upload and extract a diagnostic PDF report",
+      description: "Uploads a raw OBD scan, health report or service invoice PDF. Auto-extracts vehicle detail, faults, health score, and comparison stats using smart rule-parsers or LLM OCR.",
+    })
+  }, async (req, reply) => {
     const orgId = req.auth!.orgId;
     const file = await req.file({ limits: { fileSize: MAX_PDF_BYTES } });
     if (!file) return reply.code(400).send({ error: "no file provided" });
@@ -88,11 +97,25 @@ export async function diagnosticsRoutes(app: FastifyInstance) {
   });
 
   // List reports with vehicle/client context + fault counts.
-  app.get("/diagnostics/reports", { preHandler: requireAuth }, async (req, reply) => {
+  app.get("/diagnostics/reports", {
+    preHandler: requireAuth,
+    ...schemaDoc({
+      tags: ["Diagnostics"],
+      summary: "List all diagnostic reports",
+      querystring: z.object({
+        branchId: z.string().optional(),
+        vehicleId: z.string().optional(),
+        clientId: z.string().optional(),
+        status: z.enum(["processed", "processing", "needs_ai", "failed"]).optional(),
+      }),
+    })
+  }, async (req, reply) => {
     const orgId = req.auth!.orgId;
     const { branchId, vehicleId, clientId, status } = req.query as Record<string, string | undefined>;
     const conds = [eq(diagnosticReports.orgId, orgId)];
-    if (branchId && branchId !== "all") conds.push(eq(diagnosticReports.branchId, branchId));
+    if (branchId && branchId !== "all") {
+      conds.push(or(eq(diagnosticReports.branchId, branchId), isNull(diagnosticReports.branchId))!);
+    }
     if (vehicleId) conds.push(eq(diagnosticReports.vehicleId, vehicleId));
     if (clientId) conds.push(eq(diagnosticReports.clientId, clientId));
     if (status) conds.push(eq(diagnosticReports.status, status));
@@ -111,6 +134,7 @@ export async function diagnosticsRoutes(app: FastifyInstance) {
         reportDate: diagnosticReports.reportDate,
         odometerKm: diagnosticReports.odometerKm,
         plateNumber: sql<string | null>`coalesce(${vehicles.plateNumber}, ${diagnosticReports.plateNumber})`,
+        fuelType: vehicles.fuelType,
         clientName: clients.name,
         healthScore: diagnosticReports.healthScore,
         summary: diagnosticReports.summary,
@@ -129,10 +153,17 @@ export async function diagnosticsRoutes(app: FastifyInstance) {
   });
 
   // Dashboard KPIs for the module.
-  app.get("/diagnostics/summary", { preHandler: requireAuth }, async (req, reply) => {
+  app.get("/diagnostics/summary", {
+    preHandler: requireAuth,
+    ...schemaDoc({
+      tags: ["Diagnostics"],
+      summary: "Get diagnostic dashboard analytics KPIs summary",
+      querystring: z.object({ branchId: z.string().optional() }),
+    })
+  }, async (req, reply) => {
     const orgId = req.auth!.orgId;
     const { branchId } = req.query as { branchId?: string };
-    const branchCond = branchId && branchId !== "all" ? sql`and r.branch_id = ${branchId}` : sql``;
+    const branchCond = branchId && branchId !== "all" ? sql`and (r.branch_id = ${branchId} or r.branch_id is null)` : sql``;
 
     const [row] = await db.execute<{
       total_reports: number;
@@ -173,7 +204,14 @@ export async function diagnosticsRoutes(app: FastifyInstance) {
   });
 
   // Full report detail + history comparison.
-  app.get("/diagnostics/reports/:id", { preHandler: requireAuth }, async (req, reply) => {
+  app.get("/diagnostics/reports/:id", {
+    preHandler: requireAuth,
+    ...schemaDoc({
+      tags: ["Diagnostics"],
+      summary: "Get diagnostic report detail with historical fault comparison",
+      params: z.object({ id: z.string().uuid() }),
+    })
+  }, async (req, reply) => {
     const orgId = req.auth!.orgId;
     const { id } = req.params as { id: string };
     const detail = await loadReportDetail(orgId, id);
@@ -183,7 +221,15 @@ export async function diagnosticsRoutes(app: FastifyInstance) {
 
   // Re-run the pipeline on the stored file (e.g. after connecting the OCR
   // connector for a scanned report). `useOcr: true` forces the OCR path.
-  app.post("/diagnostics/reports/:id/reprocess", { preHandler: requireAuth }, async (req, reply) => {
+  app.post("/diagnostics/reports/:id/reprocess", {
+    preHandler: requireAuth,
+    ...schemaDoc({
+      tags: ["Diagnostics"],
+      summary: "Force LLM OCR reprocessing of a PDF scan",
+      params: z.object({ id: z.string().uuid() }),
+      body: z.object({ useOcr: z.boolean().optional() }),
+    })
+  }, async (req, reply) => {
     const orgId = req.auth!.orgId;
     const { id } = req.params as { id: string };
     const body = (req.body ?? {}) as { useOcr?: boolean };
@@ -229,7 +275,14 @@ export async function diagnosticsRoutes(app: FastifyInstance) {
     return reply.send({ ...detail, statusDetail: outcome.statusDetail });
   });
 
-  app.delete("/diagnostics/reports/:id", { preHandler: canDelete }, async (req, reply) => {
+  app.delete("/diagnostics/reports/:id", {
+    preHandler: canDelete,
+    ...schemaDoc({
+      tags: ["Diagnostics"],
+      summary: "Delete a diagnostic report",
+      params: z.object({ id: z.string().uuid() }),
+    })
+  }, async (req, reply) => {
     const orgId = req.auth!.orgId;
     const { id } = req.params as { id: string };
     await db.delete(diagnosticReports).where(and(eq(diagnosticReports.id, id), eq(diagnosticReports.orgId, orgId)));
@@ -238,7 +291,15 @@ export async function diagnosticsRoutes(app: FastifyInstance) {
 
   // Chronological diagnostic history for one vehicle: reports, health trend,
   // codes that keep coming back.
-  app.get("/diagnostics/vehicles/:vehicleId/timeline", { preHandler: requireAuth }, async (req, reply) => {
+  app.get("/diagnostics/vehicles/:vehicleId/timeline", {
+    preHandler: requireAuth,
+    ...schemaDoc({
+      tags: ["Diagnostics"],
+      summary: "Get diagnostic timeline for a vehicle",
+      description: "Returns health scores timeline, list of scan reports, and recurring diagnostic trouble codes (DTCs).",
+      params: z.object({ vehicleId: z.string().uuid() }),
+    })
+  }, async (req, reply) => {
     const orgId = req.auth!.orgId;
     const { vehicleId } = req.params as { vehicleId: string };
     const vehicle = await db.query.vehicles.findFirst({ where: and(eq(vehicles.id, vehicleId), eq(vehicles.orgId, orgId)) });

@@ -13,6 +13,15 @@ export const vendors = pgTable("vendors", {
   contactNumber: text("contact_number").notNull(),
   email: text("email"),
   address: text("address"),
+  gstNumber: text("gst_number"),
+  yearsInBusiness: integer("years_in_business"),
+  rating: numeric("rating").default("4.5"),
+  genuineCertification: boolean("genuine_certification").default(true),
+  returnPolicy: text("return_policy"),
+  specialization: text("specialization"),
+  latitude: numeric("latitude"),
+  longitude: numeric("longitude"),
+  googleMapsUrl: text("google_maps_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

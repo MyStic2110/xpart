@@ -10,9 +10,11 @@ export * from "./connectors";
 export * from "./products";
 export * from "./inventory";
 export * from "./enquiry";
-export * from "./feedback";
 export * from "./offers";
 export * from "./notifications";
 export * from "./expenses";
 export * from "./cameras";
 export * from "./diagnostics";
+export * from "./rfq";
+export * from "./garages";
+

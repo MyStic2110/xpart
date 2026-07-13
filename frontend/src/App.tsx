@@ -25,13 +25,13 @@ import Inventory from "./pages/Inventory";
 import Vendors from "./pages/Vendors";
 import VendorLedger from "./pages/VendorLedger";
 import Enquiry from "./pages/Enquiry";
-import Feedbacks from "./pages/Feedbacks";
 import SettingsDashboard from "./pages/SettingsDashboard";
 import Offers from "./pages/Offers";
 import Reports from "./pages/Reports";
 import Expenses from "./pages/Expenses";
 import Diagnostics from "./pages/Diagnostics";
 import DiagnosticReportPage from "./pages/DiagnosticReport";
+import GarageMap from "./pages/GarageMap";
 
 function isAuthenticated() {
   return Boolean(localStorage.getItem("token"));
@@ -270,14 +270,6 @@ export default function App() {
           }
         />
         <Route
-          path="/feedbacks"
-          element={
-            <RequireAuth>
-              <Feedbacks />
-            </RequireAuth>
-          }
-        />
-        <Route
           path="/reports"
           element={
             <RequireAuth>
@@ -306,6 +298,14 @@ export default function App() {
           element={
             <RequireAuth>
               <DiagnosticReportPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/garage-map"
+          element={
+            <RequireAuth>
+              <GarageMap />
             </RequireAuth>
           }
         />

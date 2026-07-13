@@ -30,6 +30,7 @@ import {
   LogOut,
   Bell,
   Stethoscope,
+  MapPin,
 } from "lucide-react";
 import { api, Notification } from "../api";
 
@@ -42,10 +43,10 @@ const NAV = [
   { label: "Client 360°", icon: Target, to: "/client-360" },
   { label: "Billing", icon: Receipt, to: "/billing" },
   { label: "Clients", icon: Users, to: "/clients" },
-  { label: "Feedbacks", icon: MessageSquareHeart, to: "/feedbacks" },
   { label: "Products", icon: Package, to: "/products" },
   { label: "Inventory", icon: Boxes, to: "/inventory" },
   { label: "Vendors", icon: Truck, to: "/vendors" },
+  { label: "Garage Map", icon: MapPin, to: "/garage-map" },
   { label: "Expenses", icon: Wallet, to: "/expenses" },
   { label: "Reports", icon: BarChart3, to: "/reports" },
 ];
@@ -143,9 +144,6 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
                         } else if (n.type === "payment") {
                           Icon = Receipt;
                           iconColor = "text-emerald-500 bg-emerald-50 border-emerald-100";
-                        } else if (n.type === "feedback") {
-                          Icon = MessageSquareHeart;
-                          iconColor = "text-rose-500 bg-rose-50 border-rose-100";
                         }
 
                         return (

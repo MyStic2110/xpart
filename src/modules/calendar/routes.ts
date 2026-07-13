@@ -51,21 +51,63 @@ export async function calendarRoutes(app: FastifyInstance) {
     const invB = b ? sql`and i.branch_id = ${b}` : sql``;
 
     // One row per calendar day with every operational count/sum for the month.
+    // Optimized with CTE pre-aggregations to avoid executing 150+ subqueries per request.
     const dayRows = (await db.execute(sql`
+      with date_series as (
+        select d.date::date as date
+        from generate_series(${monthStart}::date, ${monthStart}::date + interval '${sql.raw(String(daysInMonth - 1))} days', '1 day') d(date)
+      ),
+      daily_payments as (
+        select p.paid_at::date as date, coalesce(sum(p.amount), 0)::int as revenue
+        from payments p
+        join invoices i on i.id = p.invoice_id
+        where i.org_id = ${orgId} ${invB}
+          and p.paid_at >= ${monthStart}::date and p.paid_at < ${nextMonthStart}::date
+        group by p.paid_at::date
+      ),
+      daily_expenses as (
+        select e.expense_date as date, coalesce(sum(e.amount), 0)::int as expenses
+        from expenses e
+        where e.org_id = ${orgId} ${b ? sql`and e.branch_id = ${b}` : sql``}
+          and e.expense_date >= ${monthStart}::date and e.expense_date < ${nextMonthStart}::date
+        group by e.expense_date
+      ),
+      daily_job_cards as (
+        select jc.job_date as date, count(*)::int as job_cards
+        from job_cards jc
+        where jc.org_id = ${orgId} ${jcB}
+          and jc.job_date >= ${monthStart}::date and jc.job_date < ${nextMonthStart}::date
+        group by jc.job_date
+      ),
+      daily_appointments as (
+        select a.scheduled_date as date, count(*)::int as appointments
+        from appointments a
+        where a.org_id = ${orgId} ${b ? sql`and a.branch_id = ${b}` : sql``}
+          and a.scheduled_date >= ${monthStart}::date and a.scheduled_date < ${nextMonthStart}::date
+          and a.status in ('scheduled','confirmed')
+        group by a.scheduled_date
+      ),
+      daily_enquiries as (
+        select q.created_at::date as date, count(*)::int as enquiries
+        from enquiries q
+        where q.org_id = ${orgId} ${b ? sql`and q.branch_id = ${b}` : sql``}
+          and q.created_at >= ${monthStart}::date and q.created_at < ${nextMonthStart}::date
+        group by q.created_at::date
+      )
       select
-        d.date::date::text as date,
-        coalesce((select sum(p.amount) from payments p join invoices i on i.id = p.invoice_id
-          where i.org_id = ${orgId} ${invB} and p.paid_at::date = d.date::date), 0)::int as revenue,
-        coalesce((select sum(e.amount) from expenses e
-          where e.org_id = ${orgId} ${b ? sql`and e.branch_id = ${b}` : sql``} and e.expense_date = d.date::date), 0)::int as expenses,
-        (select count(*) from job_cards jc where jc.org_id = ${orgId} ${jcB} and jc.job_date = d.date::date)::int as "jobCards",
-        (select count(*) from appointments a
-          where a.org_id = ${orgId} ${b ? sql`and a.branch_id = ${b}` : sql``} and a.scheduled_date = d.date::date
-            and a.status in ('scheduled','confirmed'))::int as appointments,
-        (select count(*) from enquiries q
-          where q.org_id = ${orgId} ${b ? sql`and q.branch_id = ${b}` : sql``} and q.created_at::date = d.date::date)::int as enquiries
-      from generate_series(${monthStart}::date, ${monthStart}::date + interval '${sql.raw(String(daysInMonth - 1))} days', '1 day') d(date)
-      order by d.date
+        ds.date::text as date,
+        coalesce(dp.revenue, 0)::int as revenue,
+        coalesce(de.expenses, 0)::int as expenses,
+        coalesce(djc.job_cards, 0)::int as "jobCards",
+        coalesce(dapt.appointments, 0)::int as appointments,
+        coalesce(deq.enquiries, 0)::int as enquiries
+      from date_series ds
+      left join daily_payments dp on dp.date = ds.date
+      left join daily_expenses de on de.date = ds.date
+      left join daily_job_cards djc on djc.date = ds.date
+      left join daily_appointments dapt on dapt.date = ds.date
+      left join daily_enquiries deq on deq.date = ds.date
+      order by ds.date
     `)) as unknown as Array<{ date: string; revenue: number; expenses: number; jobCards: number; appointments: number; enquiries: number }>;
 
     // Weekday demand pattern from the org's own last 180 days of collections —

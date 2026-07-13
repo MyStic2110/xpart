@@ -218,6 +218,62 @@
       "when": 1783838844154,
       "tag": "0030_diagnostics-ai-analysis",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783850024186,
+      "tag": "0031_add_vehicle_images",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783850546642,
+      "tag": "0032_add_vehicle_insurance_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783854598561,
+      "tag": "0033_add_b2b_rfq_network",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1783856026203,
+      "tag": "0034_add_rfq_broadcast_whatsapp",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783857680578,
+      "tag": "0035_add_vendor_google_maps_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1783858247767,
+      "tag": "0036_add_rfq_items_cart_jsonb",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1783939720216,
+      "tag": "0037_steady_human_fly",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783956962573,
+      "tag": "0038_clever_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

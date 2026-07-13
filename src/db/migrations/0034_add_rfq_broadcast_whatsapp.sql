@@ -1,0 +1,1 @@
+ALTER TABLE "parts_requests" ADD COLUMN "broadcast_whatsapp" boolean DEFAULT false NOT NULL;

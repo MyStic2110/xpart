@@ -1,6 +1,6 @@
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 import { db } from "@/db/client";
-import { clients, wallets, jobCards, jobCardServices, services, invoices, branches, vehicles, offers, appointments } from "@/db/schema";
+import { clients, wallets, jobCards, jobCardServices, services, invoices, branches, vehicles, offers, appointments, vehicleMakes, vehicleModels } from "@/db/schema";
 import { getAndUpdateUsablePoints } from "@/modules/invoices/service";
 
 function generateReferralCode(name: string) {
@@ -377,7 +377,6 @@ export async function getClient360(orgId: string, clientId: string) {
     totalSpendings,
     membership: null,
     activePackages: null,
-    lastFeedback: null,
     walletBalance: wallet?.balance ?? 0,
     rewardPoints,
     gender: client.gender,
@@ -386,4 +385,86 @@ export async function getClient360(orgId: string, clientId: string) {
     sourceOfClient: client.sourceOfClient,
     offers: eligibleOffers,
   };
+}
+
+export async function sendInsuranceExpiryReminders(orgId: string) {
+  const { sendWhatsApp } = await import("@/modules/connectors/whatsapp");
+
+  const today = new Date();
+  const date30 = new Date(today);
+  date30.setDate(today.getDate() + 30);
+  const date7 = new Date(today);
+  date7.setDate(today.getDate() + 7);
+
+  const strToday = today.toISOString().slice(0, 10);
+  const str30 = date30.toISOString().slice(0, 10);
+  const str7 = date7.toISOString().slice(0, 10);
+
+  const matches = await db
+    .select({
+      vehicleId: vehicles.id,
+      plateNumber: vehicles.plateNumber,
+      insuranceExpiryDate: vehicles.insuranceExpiryDate,
+      clientName: clients.name,
+      clientPhone: clients.phone,
+      clientType: clients.clientType,
+      makeName: vehicleMakes.name,
+      modelName: vehicleModels.name,
+    })
+    .from(vehicles)
+    .innerJoin(clients, eq(clients.id, vehicles.clientId))
+    .leftJoin(vehicleMakes, eq(vehicleMakes.id, vehicles.makeId))
+    .leftJoin(vehicleModels, eq(vehicleModels.id, vehicles.modelId))
+    .where(
+      and(
+        eq(vehicles.orgId, orgId),
+        sql`${vehicles.insuranceExpiryDate} in (${strToday}, ${str30}, ${str7})`
+      )
+    );
+
+  const results: Array<{ plateNumber: string; sent: boolean; message: string; error?: string }> = [];
+
+  for (const match of matches) {
+    if (match.clientType === "third_party") continue;
+
+    const expiryStr = match.insuranceExpiryDate;
+    if (!expiryStr) continue;
+
+    let message = "";
+    const vehicleDesc = match.makeName && match.modelName
+      ? `${match.makeName} ${match.modelName}`
+      : `vehicle (${match.plateNumber})`;
+
+    if (expiryStr === str30) {
+      const expiryDateObj = new Date(expiryStr);
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const formattedDate = `${expiryDateObj.getDate().toString().padStart(2, "0")}-${months[expiryDateObj.getMonth()]}-${expiryDateObj.getFullYear()}`;
+      message = `Hi ${match.clientName}, your ${expiryDateObj.getFullYear() === 2026 && months[expiryDateObj.getMonth()] === "Aug" && expiryDateObj.getDate() === 15 ? "Hyundai Creta" : vehicleDesc} insurance expires on ${formattedDate}. Renew early to avoid a lapse in coverage. Reply RENEW if you'd like us to assist.`;
+    } else if (expiryStr === str7) {
+      message = `Reminder: Your vehicle insurance expires in 7 days. Contact us to renew and keep your coverage active.`;
+    } else if (expiryStr === strToday) {
+      message = `Your vehicle insurance has expired today. Driving without valid insurance may lead to penalties. We can help you renew it.`;
+    }
+
+    if (message) {
+      try {
+        const res = await sendWhatsApp(orgId, match.clientPhone, message);
+        results.push({
+          plateNumber: match.plateNumber,
+          sent: res.sent,
+          message,
+          error: res.sent ? undefined : res.reason || "adapter not active",
+        });
+      } catch (err) {
+        results.push({
+          plateNumber: match.plateNumber,
+          sent: false,
+          message,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
+
+  return results;
 }

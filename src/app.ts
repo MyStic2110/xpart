@@ -1,5 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "node:path";
@@ -25,7 +27,6 @@ import { productRoutes } from "@/modules/products/routes";
 import { inventoryRoutes } from "@/modules/inventory/routes";
 import { vendorRoutes } from "@/modules/vendors/routes";
 import { enquiryRoutes } from "@/modules/enquiry/routes";
-import { feedbackRoutes } from "@/modules/feedback/routes";
 import { offersRoutes } from "@/modules/offers/routes";
 import { notificationsRoutes } from "@/modules/notifications/routes";
 import { reportsRoutes } from "@/modules/reports/routes";
@@ -33,6 +34,7 @@ import { expenseRoutes } from "@/modules/expenses/routes";
 import { calendarRoutes } from "@/modules/calendar/routes";
 import { cameraRoutes } from "@/modules/cameras/routes";
 import { diagnosticsRoutes } from "@/modules/diagnostics/routes";
+import { garagesRoutes } from "@/modules/garages/routes";
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
@@ -42,6 +44,41 @@ export async function buildApp() {
   await app.register(fastifyStatic, {
     root: path.resolve("uploads"),
     prefix: "/uploads/",
+  });
+
+  // Register Swagger
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: "XPart Garage SaaS API",
+        description: "API Documentation for XPart Garage SaaS platform",
+        version: "0.1.0",
+      },
+      servers: [
+        {
+          url: "http://localhost:3000",
+        },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+          },
+        },
+      },
+      security: [{ bearerAuth: [] }],
+    },
+  });
+
+  // Register Swagger UI
+  await app.register(swaggerUi, {
+    routePrefix: "/documentation",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: false,
+    },
   });
 
   app.get("/health", async () => {
@@ -68,7 +105,6 @@ export async function buildApp() {
   await app.register(inventoryRoutes);
   await app.register(vendorRoutes);
   await app.register(enquiryRoutes);
-  await app.register(feedbackRoutes);
   await app.register(offersRoutes);
   await app.register(notificationsRoutes);
   await app.register(reportsRoutes);
@@ -76,6 +112,7 @@ export async function buildApp() {
   await app.register(calendarRoutes);
   await app.register(cameraRoutes);
   await app.register(diagnosticsRoutes);
+  await app.register(garagesRoutes);
 
   return app;
 }

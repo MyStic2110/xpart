@@ -1,0 +1,23 @@
+CREATE INDEX IF NOT EXISTS "invoices_org_idx" ON "invoices" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "invoices_branch_idx" ON "invoices" USING btree ("branch_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "payments_invoice_idx" ON "payments" USING btree ("invoice_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "payments_paid_at_idx" ON "payments" USING btree ("paid_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "clients_org_idx" ON "clients" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "clients_phone_idx" ON "clients" USING btree ("phone");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "vehicles_org_idx" ON "vehicles" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "vehicles_plate_idx" ON "vehicles" USING btree ("plate_number");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "wallets_org_idx" ON "wallets" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "enquiries_org_idx" ON "enquiries" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "enquiries_branch_idx" ON "enquiries" USING btree ("branch_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "enquiries_created_idx" ON "enquiries" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "expenses_org_idx" ON "expenses" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "expenses_branch_idx" ON "expenses" USING btree ("branch_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "expenses_date_idx" ON "expenses" USING btree ("expense_date");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_cards_org_idx" ON "job_cards" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_cards_branch_idx" ON "job_cards" USING btree ("branch_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_cards_date_idx" ON "job_cards" USING btree ("job_date");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "appointments_org_idx" ON "appointments" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "appointments_branch_idx" ON "appointments" USING btree ("branch_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "appointments_date_idx" ON "appointments" USING btree ("scheduled_date");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "sales_actions_org_idx" ON "sales_actions" USING btree ("org_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "sales_actions_due_idx" ON "sales_actions" USING btree ("due_date");

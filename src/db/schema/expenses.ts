@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, date, timestamp, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, date, timestamp, unique, index } from "drizzle-orm/pg-core";
 import { organizations, branches } from "./org";
 
 // Expense "Type" — org-wide shared list (Rent, Salary, Utilities…), like products.
@@ -29,4 +29,8 @@ export const expenses = pgTable("expenses", {
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("expenses_org_idx").on(t.orgId),
+  index("expenses_branch_idx").on(t.branchId),
+  index("expenses_date_idx").on(t.expenseDate),
+]);

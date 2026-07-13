@@ -41,13 +41,12 @@ Commercial multi-tenant SaaS for Indian car/bike wash + detailing + service busi
 - **expenses** — branch-scoped spend tracking. `expense_categories` (org-wide shared master list — Daily expenses/Staff expenses/Parts/Job work/…, admin/manager-gated writes) + `expenses` (branch-stamped: date, categoryId=Type, amount paise, paymentMode **free text** e.g. "Cash"/"Online payment" — NOT an enum, source apps vary, recipient=paid-to, paidBy **free text** e.g. "Admin" — NOT a user FK, notes). Deleting a category nulls `expenses.category_id` (history kept). Page `Expenses.tsx` (`/expenses`): Date/Type/Amount/Payment mode/Recipient/Paid by/Action table + running total, "Add expense" + "Manage categories" drawers. Seeded from a real June-2026 report (92 rows ~₹2.23L). Plain spend ledger — not intelligence (yet).
 - **calendar (Planner)** — owner planning calendar (`src/modules/calendar/*`, page `Calendar.tsx` at `/calendar`, sidebar "Planner"). Month grid: past days = revenue heatmap (sky tint) + job-card/appointment/expense dots; future days = expected-demand tint (peak/busy/slow). Intelligence: weekday indexes learned from own last-180-day payments; Indian festival dataset in `holidays.ts` (static 2026–27, lunar dates approximate — `washRush` flags pre-festival car-wash rush ×1.35–1.6, long weekends ×1.2); rain forecast via **Open-Meteo (free, keyless)** in `weather.ts` — static lat/lon map for major Indian cities (geocoding subdomain is DNS-flaky on Indian ISPs; only unknown cities hit it, 4s timeout), 3h in-memory cache, degrades to null gracefully. Rain ≥70% ×0.4, 40–69% ×0.7. Per-day drivers + actionable tips; "insights" strip (rush windows, rain days, strongest-weekday pattern). Future days carry `expectedRevenue` (score × own 180d avg daily collection) shown as ~₹ in cells; response also has `summary` {monthToDate, projected, prevMonthRevenue, bestDay, next7Expected} → dark gradient hero band + "Week ahead" chip strip + hover tooltips per cell. Day click → `GET /calendar/day` panel (job cards, appointments, expenses, payments by mode).
 - **cameras** — per-branch CCTV/IP camera config (`src/modules/cameras/routes.ts`, table `branch_cameras`, page `CameraSettings.tsx` at `/settings/cameras`, sidebar Settings → Cameras). Fields: name, placement inside|outside, provider, streamUrl, username/password (masked `••••••` on read; masked value on PATCH won't overwrite secret), aiEnabled, notes, status. Provider registry in-route: hikvision/dahua/cpplus/tplink_tapo/generic_rtsp (RTSP — `browserPlayable:false`, need go2rtc/mediamtx gateway for live view/AI) + mjpeg_http/hls/device_webcam (playable). Writes: owner/admin/branch_manager. **AI layer = MediaPipe Tasks Vision loaded from jsDelivr CDN at runtime (no npm dep/rebuild)** — in-browser ObjectDetector (efficientdet_lite0 from storage.googleapis.com), person+vehicle counts with live boxes, currently sourced from the device webcam; IP-cam AI awaits a stream gateway. Endpoints: `GET /cameras?branchId=` (providers+cameras), `POST /cameras`, `PATCH/DELETE /cameras/:id`.
-- **feedback** — reviews (rating/comment/source/reply); `/feedback/import` with externalId dedup for Google reviews via Places API / paid service.
 - **diagnostics** — PDF diagnostic-report intelligence per vehicle, no OBD connection needed (`src/modules/diagnostics/*`, pages `Diagnostics.tsx` `/diagnostics` + `DiagnosticReport.tsx` `/diagnostics/:id`, sidebar "Diagnostics"). Upload any diagnostic PDF (OBD scan/health/emission/battery/alignment/insurance) → **one deterministic parser, two text sources**: searchable PDFs read free/offline via `pdf-parse` **v2** (`PDFParse` class API, NOT the old default-export); scanned PDFs (no text layer) OCR'd to markdown via **Mistral OCR** (`ocr.ts`, POST api.mistral.ai/v1/ocr with base64 data-URL document, `include_image_base64:false`) behind the `mistral_ocr` connector (category automation; apiKey + model select) — no key → honest `needs_ai` status with "Read with OCR" button + `reprocess {useOcr}`. **Full document text is saved as `uploads/<uuid>.txt`** (`textFileUrl`, tables kept as markdown — the LLM-ready artefact; raw OCR responses are never stored). **AI analysis layer** (`llm.ts`, `openrouter` connector — apiKey + free-text model id): flow is **text → AutoDiag India prompt → UI**. The owner-supplied `AUTODIAG_PROMPT` (verbatim in llm.ts — senior Indian diagnostic engineer persona, evidence-only rules, "Not Available"/"Cost cannot be estimated." fallbacks, fixed JSON shape w/ customer_summary/technician_notes/parts_required incl OEM-vs-equivalent/estimated_cost INR/confidence) is sent with the document text (60k char cap, temp 0) to OpenRouter chat/completions; full JSON stored as `diagnostic_reports.ai_analysis` jsonb and rendered by `AiAnalysisCard` in DiagnosticReport.tsx (defensive recursive renderer — model output shapes vary); engine `parser+llm`/`ocr+llm`; LLM failure never blocks — honest statusDetail note. Deterministic fault rows still power history/recurrence/KPI SQL alongside. Both sources feed `extract.ts` regexes (DTC `[PBCU][0-3]xxx` w/ status+ECU context windows — same-row-first, VIN, Indian plates incl BH-series, odometer, dd/mm/yyyy dates, 12 live-sensor labels, Indian make list) after `normalizeForParsing` (**table pipes → column gaps, strip markdown, descriptions cut at 2+ spaces + numeric-only cell-bleed rejected** — this is what keeps table values clean). Knowledge in code (like holidays.ts): `dtc-database.ts` ~120 exact DTCs + family fallbacks (system/severity/causes/typical fix/Indian ₹ cost bands **in paise**/labor hrs); `rules.ts` 12 correlation rules → root causes w/ numbered repair sequences ("fix misfire before condemning the cat"), health score 0–100 (severity deductions × status weight — history 0.25, pending 0.6 — recurring ×1.25) + per-system scores, recommendations merged by shared fix. Tables `diagnostic_reports` (extracted/systemScores/rootCauses/recommendations jsonb + textFileUrl) + `diagnostic_faults` (flat, vehicleId-denormalised for history SQL). Vehicle auto-matched by normalised plate → recurring-fault flags, prev-report comparison (new/resolved/recurring codes + health delta), per-vehicle timeline & health trend, org KPIs + top codes. Upload cap 15MB, PDF only; **multipart fields must be appended BEFORE the file** (read via fastify `file.fields`); both page tables need their `overflow-x-auto` wrapper (house rule — bare wide tables break the layout).
 
 ## Branch switcher (cross-cutting)
 `frontend/src/BranchContext.tsx` → `{branchId, branchParam, branches, setBranchId}` (localStorage). Dropdown at top of Sidebar ("Viewing").
 - **Branch-filtered (operational):** dashboard, job cards, billing, client 360, inventory, enquiry, expenses.
-- **Org-wide / shared (settings):** branches, staff, vehicle catalog, products, connectors, software settings, clients, feedback, expense categories.
+- **Org-wide / shared (settings):** branches, staff, vehicle catalog, products, connectors, software settings, clients, expense categories.
 - Backend endpoints accept `?branchId=` and filter when present.
 
 ---
@@ -96,7 +95,11 @@ All under base `/` (frontend calls via `/api/*` Vite proxy). All except `/health
 - `GET  /clients/search?q=` — phone/name autocomplete
 - `GET  /clients/:id` — detail (visits, vehicles, spend; + `credit` ledger for third_party)
 - `GET  /clients/:id/credit` — open (draft/partial) invoices per vehicle + totalOutstanding
-- `GET  /clients/:id/360` — 360 summary
+- &thinsp;`GET  /clients/:id/360` — 360 summary
+
+**Vehicles & Insurance Reminders**
+- `PATCH /vehicles/:id` — update vehicle (images string array, insuranceExpiryDate date)
+- `POST /vehicles/insurance-reminders/trigger` — run daily/scheduled scan to trigger automated WhatsApp reminders (30 days before, 7 days before, on expiry date) based on `insuranceExpiryDate`
 
 **Job cards**
 - `GET  /job-cards` — `?branchId=`
@@ -137,24 +140,23 @@ All under base `/` (frontend calls via `/api/*` Vite proxy). All except `/health
 
 **Vendors & Credit Matching** (writes: super_admin, org_owner, admin, branch_manager)
 - `GET  /vendors` — list all vendors
-- `POST /vendors` — create vendor
+- `POST /vendors` — create vendor (with optional `googleMapsUrl` parameter)
 - `PATCH /vendors/:id` · `DELETE /vendors/:id`
 - `GET  /vendors/:id/ledger` — get credit purchase ledger matched to plate numbers
 - `POST /vendors/:id/pay-vehicle` — record partial or full credit payment to vendor for a vehicle
 - `GET  /vehicles/search` — search vehicles by plate number
+- `GET  /vendors/rfqs` — list spare parts requests w/ quotes
+- `POST /vendors/rfqs` — create spare parts request (w/ auto smart supplier matching and optional `broadcastWhatsApp` boolean parameter)
+- `POST /vendors/rfqs/:id/select` — choose supplier quote for a request
+- `POST /vendors/rfqs/:id/complete` — mark request order as complete
+- `POST /vendors/rfqs/:id/reorder` — clone a past request to broadcast it again
+- `GET  /vendors/rfqs/history-stats` — get RFQ sourcing statistics (total RFQs, completed orders, avg response time, rupees saved)
 
 
 **Enquiry (leads)**
 - `GET  /enquiries` — `?branchId=&status=&type=&source=&rep=&from=&to=&enquiryFor=`
 - `POST /enquiries`
 - `PATCH /enquiries/:id` — status/response/follow-up/rep
-
-**Feedback / reviews**
-- `GET  /feedback` — `?source=`
-- `GET  /feedback/summary` — avg rating, counts
-- `POST /feedback`
-- `PATCH /feedback/:id/reply` (writes: manager+)
-- `POST /feedback/import` — bulk import with externalId dedup (Google/paid service)
 
 **Diagnostics (PDF report intelligence)** — uploads/reads: any authed staffer; delete: owner/admin/branch_manager
 - `POST /diagnostics/reports` — multipart PDF (fields branchId/vehicleId/reportType appended before file) → extract + analyse synchronously
@@ -217,7 +219,6 @@ Never claim success without checking. Backend: `curl` + bearer token. Frontend: 
 ## Known stubs / next steps
 - Connectors store config but don't execute (no real Exotel call / Gupshup send). Exception scaffolding: `connectors/whatsapp.ts` `sendWhatsApp()` resolves the org's active WhatsApp provider and returns `{sent:false, reason: connector_not_configured | adapter_not_activated}` — the real API call is a single marked TODO (payload shapes for whatsapp_cloud & gupshup documented inline).
 - Referral rewards NOT implemented: invite message promises 500/500 points on friend's first billing, but there's no referral-code capture on job card/billing nor auto-credit yet.
-- Google reviews unscrapable (blocked + ToS); `/feedback/import` ready for Places API / paid service.
 - No persistent top bar (branch switcher is in sidebar; true top bar = shared-layout refactor of ~20 pages).
 - Enquiry → Job Card conversion not wired.
 

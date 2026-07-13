@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, timestamp, integer, pgEnum, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, date, timestamp, integer, pgEnum, unique, index } from "drizzle-orm/pg-core";
 import { organizations, branches } from "./org";
 import { vehicleMakes, vehicleModels } from "./catalog";
 
@@ -25,7 +25,12 @@ export const clients = pgTable(
     referredByClientId: uuid("referred_by_client_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique().on(t.orgId, t.phone), unique().on(t.orgId, t.referralCode)]
+  (t) => [
+    unique().on(t.orgId, t.phone),
+    unique().on(t.orgId, t.referralCode),
+    index("clients_org_idx").on(t.orgId),
+    index("clients_phone_idx").on(t.phone)
+  ]
 );
 
 export const vehicles = pgTable(
@@ -44,9 +49,15 @@ export const vehicles = pgTable(
     odometerReading: integer("odometer_reading"),
     nextServiceDate: date("next_service_date"),
     vehicleType: text("vehicle_type").notNull().default("two_wheeler"), // two_wheeler | car
+    images: text("images").array(),
+    insuranceExpiryDate: date("insurance_expiry_date"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique().on(t.orgId, t.plateNumber)]
+  (t) => [
+    unique().on(t.orgId, t.plateNumber),
+    index("vehicles_org_idx").on(t.orgId),
+    index("vehicles_plate_idx").on(t.plateNumber)
+  ]
 );
 
 // Wallet: one per client, org-scoped (usable across branches of the same org)
@@ -57,7 +68,9 @@ export const wallets = pgTable("wallets", {
   balance: integer("balance").notNull().default(0), // paise, avoid floats for money
   points: integer("points").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("wallets_org_idx").on(t.orgId)
+]);
 
 export const walletTxnTypeEnum = pgEnum("wallet_txn_type", ["credit", "debit"]);
 export const walletTxnSourceEnum = pgEnum("wallet_txn_source", [

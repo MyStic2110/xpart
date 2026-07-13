@@ -18,7 +18,6 @@ export default function Client360Panel({ data }: { data: Client360 | null }) {
     totalSpendings: 0,
     membership: null,
     activePackages: null,
-    lastFeedback: null,
     walletBalance: 0,
     rewardPoints: 0,
     gender: "----",
@@ -40,7 +39,6 @@ export default function Client360Panel({ data }: { data: Client360 | null }) {
         <Row label="Total spendings" value={`₹${(v.totalSpendings / 100).toLocaleString("en-IN")}`} />
         <Row label="Membership" value={v.membership} />
         <Row label="Active packages" value={v.activePackages} />
-        <Row label="Last feedback" value={v.lastFeedback} />
         <Row
           label="My wallet"
           value={

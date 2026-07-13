@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, date, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, date, timestamp, pgEnum, index } from "drizzle-orm/pg-core";
 import { organizations, branches } from "./org";
 import { users } from "./identity";
 import { vehicleMakes, vehicleModels } from "./catalog";
@@ -35,4 +35,8 @@ export const enquiries = pgTable("enquiries", {
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("enquiries_org_idx").on(t.orgId),
+  index("enquiries_branch_idx").on(t.branchId),
+  index("enquiries_created_idx").on(t.createdAt),
+]);
