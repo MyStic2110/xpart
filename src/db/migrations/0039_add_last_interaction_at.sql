@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "last_interaction_at" timestamp with time zone;

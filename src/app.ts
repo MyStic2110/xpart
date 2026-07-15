@@ -8,6 +8,7 @@ import path from "node:path";
 import { mkdirSync } from "node:fs";
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
+import { env } from "@/env";
 import { authRoutes } from "@/modules/auth/routes";
 import { meRoutes } from "@/modules/me/routes";
 import { branchRoutes } from "@/modules/branches/routes";
@@ -35,10 +36,21 @@ import { calendarRoutes } from "@/modules/calendar/routes";
 import { cameraRoutes } from "@/modules/cameras/routes";
 import { diagnosticsRoutes } from "@/modules/diagnostics/routes";
 import { garagesRoutes } from "@/modules/garages/routes";
+import { webhookRoutes } from "@/modules/webhooks/routes";
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
-  await app.register(cors, { origin: true });
+  
+  let corsOrigin: any = true;
+  if (env.CORS_ALLOWED_ORIGINS) {
+    corsOrigin = env.CORS_ALLOWED_ORIGINS.split(",").map((o) => o.trim());
+  } else if (process.env.NODE_ENV === "production") {
+    console.warn(
+      "[CORS] WARNING: CORS_ALLOWED_ORIGINS is not set in production. Defaulting to open wildcard access."
+    );
+  }
+
+  await app.register(cors, { origin: corsOrigin });
   await app.register(multipart);
   mkdirSync(path.resolve("uploads"), { recursive: true });
   await app.register(fastifyStatic, {
@@ -113,6 +125,7 @@ export async function buildApp() {
   await app.register(cameraRoutes);
   await app.register(diagnosticsRoutes);
   await app.register(garagesRoutes);
+  await app.register(webhookRoutes);
 
   return app;
 }

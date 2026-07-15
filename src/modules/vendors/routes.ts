@@ -618,7 +618,10 @@ export async function vendorRoutes(app: FastifyInstance) {
         `Respond if available.`;
       
       for (const v of vendorList.slice(0, 3)) {
-        sendWhatsApp(auth.orgId, v.contactNumber, broadcastMsg).catch((err) => {
+        sendWhatsApp(auth.orgId, v.contactNumber, broadcastMsg, {
+          name: "rfq_broadcast",
+          parameters: [d.vehicleInfo, itemsListText, d.deliveryLocation],
+        }).catch((err) => {
           console.error(`[rfq] WhatsApp broadcast notification failed for vendor ${v.name}:`, err);
         });
       }

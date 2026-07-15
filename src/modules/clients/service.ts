@@ -431,6 +431,7 @@ export async function sendInsuranceExpiryReminders(orgId: string) {
     if (!expiryStr) continue;
 
     let message = "";
+    let template: { name: string; parameters: string[] } | undefined = undefined;
     const vehicleDesc = match.makeName && match.modelName
       ? `${match.makeName} ${match.modelName}`
       : `vehicle (${match.plateNumber})`;
@@ -439,16 +440,29 @@ export async function sendInsuranceExpiryReminders(orgId: string) {
       const expiryDateObj = new Date(expiryStr);
       const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const formattedDate = `${expiryDateObj.getDate().toString().padStart(2, "0")}-${months[expiryDateObj.getMonth()]}-${expiryDateObj.getFullYear()}`;
-      message = `Hi ${match.clientName}, your ${expiryDateObj.getFullYear() === 2026 && months[expiryDateObj.getMonth()] === "Aug" && expiryDateObj.getDate() === 15 ? "Hyundai Creta" : vehicleDesc} insurance expires on ${formattedDate}. Renew early to avoid a lapse in coverage. Reply RENEW if you'd like us to assist.`;
+      const vehicleName = expiryDateObj.getFullYear() === 2026 && months[expiryDateObj.getMonth()] === "Aug" && expiryDateObj.getDate() === 15 ? "Hyundai Creta" : vehicleDesc;
+      message = `Hi ${match.clientName}, your ${vehicleName} insurance expires on ${formattedDate}. Renew early to avoid a lapse in coverage. Reply RENEW if you'd like us to assist.`;
+      template = {
+        name: "insurance_expiry_30d",
+        parameters: [match.clientName, vehicleName, formattedDate],
+      };
     } else if (expiryStr === str7) {
       message = `Reminder: Your vehicle insurance expires in 7 days. Contact us to renew and keep your coverage active.`;
+      template = {
+        name: "insurance_expiry_7d",
+        parameters: [match.clientName, vehicleDesc],
+      };
     } else if (expiryStr === strToday) {
       message = `Your vehicle insurance has expired today. Driving without valid insurance may lead to penalties. We can help you renew it.`;
+      template = {
+        name: "insurance_expiry_today",
+        parameters: [match.clientName, vehicleDesc],
+      };
     }
 
     if (message) {
       try {
-        const res = await sendWhatsApp(orgId, match.clientPhone, message);
+        const res = await sendWhatsApp(orgId, match.clientPhone, message, template);
         results.push({
           plateNumber: match.plateNumber,
           sent: res.sent,

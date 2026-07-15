@@ -237,6 +237,49 @@ export async function getAndUpdateUsablePoints(tx: Tx, walletId: string, orgId: 
   return usableBalance;
 }
 
+// Credits 500 referral points to both the referrer and referee wallets.
+async function creditReferralBonus(
+  tx: Tx,
+  orgId: string,
+  referrerClientId: string,
+  refereeClientId: string,
+  refereeInvoiceId: string
+) {
+  // 1. Credit Referrer
+  let referrerWallet = await tx.query.wallets.findFirst({ where: eq(wallets.clientId, referrerClientId) });
+  if (!referrerWallet) {
+    [referrerWallet] = await tx.insert(wallets).values({ clientId: referrerClientId, orgId }).returning();
+  }
+  const referrerNewPoints = referrerWallet.points + 500;
+  await tx.update(wallets).set({ points: referrerNewPoints }).where(eq(wallets.id, referrerWallet.id));
+  await tx.insert(pointsTransactions).values({
+    walletId: referrerWallet.id,
+    orgId,
+    type: "earn",
+    points: 500,
+    balanceAfter: referrerNewPoints,
+    refId: refereeInvoiceId,
+    note: `Referral bonus for inviting client`,
+  });
+
+  // 2. Credit Referee (the friend)
+  let refereeWallet = await tx.query.wallets.findFirst({ where: eq(wallets.clientId, refereeClientId) });
+  if (!refereeWallet) {
+    [refereeWallet] = await tx.insert(wallets).values({ clientId: refereeClientId, orgId }).returning();
+  }
+  const refereeNewPoints = refereeWallet.points + 500;
+  await tx.update(wallets).set({ points: refereeNewPoints }).where(eq(wallets.id, refereeWallet.id));
+  await tx.insert(pointsTransactions).values({
+    walletId: refereeWallet.id,
+    orgId,
+    type: "earn",
+    points: 500,
+    balanceAfter: refereeNewPoints,
+    refId: refereeInvoiceId,
+    note: `Welcome bonus for using referral code`,
+  });
+}
+
 // Credits loyalty points for real money collected (cash/upi/card only — wallet
 // and points payments must not earn, to avoid earning on already-redeemed value).
 // Runs inside the payment transaction so points and the payment commit together.
@@ -342,6 +385,26 @@ export async function recordPayment(orgId: string, invoiceId: string, input: Rec
     // Mark the job card billed once the invoice is fully settled.
     if (newStatus === "paid") {
       await tx.update(jobCards).set({ status: "billed" }).where(eq(jobCards.id, invoice.jobCardId));
+      
+      // If the client has a referrer and this is their first paid invoice, credit the referral bonus.
+      if (payer && payer.referredByClientId) {
+        const paidInvoicesCount = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(invoices)
+          .where(
+            and(
+              eq(invoices.clientId, invoice.clientId),
+              eq(invoices.status, "paid"),
+              sql`${invoices.id} != ${invoiceId}`
+            )
+          );
+        
+        const otherPaidCount = paidInvoicesCount[0]?.count ?? 0;
+        if (otherPaidCount === 0) {
+          await creditReferralBonus(tx, orgId, payer.referredByClientId, invoice.clientId, invoiceId);
+          console.log(`[referral] Credited referral points to referrer (${payer.referredByClientId}) and referee (${invoice.clientId}) for invoice ${invoiceId}`);
+        }
+      }
     }
 
     await createNotification(orgId, {

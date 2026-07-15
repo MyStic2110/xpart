@@ -1,6 +1,6 @@
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db/client";
-import { vehicles, jobCards, jobCardServices, jobCardProducts, branches, services, users, clients, invoices } from "@/db/schema";
+import { vehicles, jobCards, jobCardServices, jobCardProducts, branches, services, users, clients, invoices, enquiries } from "@/db/schema";
 import { findOrCreateClient } from "@/modules/clients/service";
 import { sendReferralInvite } from "@/modules/connectors/whatsapp";
 import type { AuthContext } from "@/middleware/auth";
@@ -58,6 +58,7 @@ export interface CreateJobCardInput {
   taxPercent: number; // 0 or 18
   images?: string[];
   appliedOfferId?: string;
+  enquiryId?: string;
 }
 
 async function findOrCreateVehicle(orgId: string, clientId: string, input: VehicleInput) {
@@ -124,6 +125,7 @@ export async function createJobCard(auth: AuthContext, input: CreateJobCardInput
         clientId: client.id,
         vehicleId: vehicle.id,
         appliedOfferId: input.appliedOfferId || null,
+        enquiryId: input.enquiryId || null,
         jobDate: input.jobDate,
         serviceAdvisorId: input.serviceAdvisorId || null,
         images: input.images && input.images.length > 0 ? input.images : null,
@@ -134,6 +136,13 @@ export async function createJobCard(auth: AuthContext, input: CreateJobCardInput
         status: "in_progress",
       })
       .returning();
+
+    if (input.enquiryId) {
+      await tx
+        .update(enquiries)
+        .set({ leadStatus: "converted", updatedAt: new Date() })
+        .where(eq(enquiries.id, input.enquiryId));
+    }
 
     let lineItemRows: any[] = [];
     if (input.lineItems.length > 0) {

@@ -6,6 +6,7 @@ import { services } from "./catalog";
 import { offers } from "./offers";
 import { products } from "./products";
 import { inventoryItems } from "./inventory";
+import { enquiries } from "./enquiry";
 
 export const jobCardStatusEnum = pgEnum("job_card_status", [
   "draft",
@@ -22,6 +23,7 @@ export const jobCards = pgTable("job_cards", {
   clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
   vehicleId: uuid("vehicle_id").notNull().references(() => vehicles.id, { onDelete: "cascade" }),
   appliedOfferId: uuid("applied_offer_id").references(() => offers.id),
+  enquiryId: uuid("enquiry_id").references(() => enquiries.id, { onDelete: "set null" }),
   jobDate: date("job_date").notNull(),
   serviceAdvisorId: uuid("service_advisor_id").references(() => users.id),
   images: text("images").array(),

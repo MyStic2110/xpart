@@ -23,6 +23,7 @@ export const clients = pgTable(
     clientType: text("client_type").notNull().default("customer"), // customer | third_party
     referralCode: text("referral_code").notNull(),
     referredByClientId: uuid("referred_by_client_id"),
+    lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

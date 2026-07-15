@@ -43,6 +43,7 @@ const createJobCardSchema = z.object({
   taxPercent: z.coerce.number().nonnegative().default(0),
   images: z.array(z.string()).optional(),
   appliedOfferId: z.string().uuid().optional().or(z.literal("")),
+  enquiryId: z.string().uuid().optional().or(z.literal("")),
 });
 
 export async function jobCardRoutes(app: FastifyInstance) {

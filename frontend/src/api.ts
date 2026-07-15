@@ -328,6 +328,7 @@ export interface CreateJobCardInput {
   taxPercent: number;
   images?: string[];
   appliedOfferId?: string;
+  enquiryId?: string;
 }
 
 export interface Offer {

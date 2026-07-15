@@ -265,10 +265,8 @@ export default function CreateJobCard() {
         taxPercent,
         images,
         appliedOfferId: appliedOfferId || undefined,
+        enquiryId: conversionData?.enquiryId || undefined,
       });
-      if (conversionData?.enquiryId) {
-        await api.updateEnquiry(conversionData.enquiryId, { leadStatus: "converted" }).catch(() => {});
-      }
       navigate(`/job-cards/${result.jobCard.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "could not create job card");
