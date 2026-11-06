@@ -14,7 +14,7 @@ ENV NODE_ENV=production
 ENV PORT=8080
 
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev && npm install -g tsx
 
 COPY tsconfig.json drizzle.config.ts ./
 COPY src/ ./src/
@@ -27,4 +27,4 @@ RUN mkdir -p uploads
 
 EXPOSE 8080
 
-CMD ["npm", "start"]
+CMD ["tsx", "src/server.ts"]
