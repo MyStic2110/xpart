@@ -5,7 +5,7 @@ import swaggerUi from "@fastify/swagger-ui";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "node:path";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
 import { env } from "@/env";
@@ -93,39 +93,64 @@ export async function buildApp() {
     },
   });
 
-  app.get("/health", async () => {
-    await db.execute(sql`select 1`);
-    return { status: "ok" };
-  });
+  async function apiRoutes(api: any) {
+    api.get("/health", async () => {
+      await db.execute(sql`select 1`);
+      return { status: "ok" };
+    });
 
-  await app.register(authRoutes);
-  await app.register(meRoutes);
-  await app.register(branchRoutes);
-  await app.register(uploadRoutes);
-  await app.register(staffRoutes);
-  await app.register(attendanceRoutes);
-  await app.register(payrollRoutes);
-  await app.register(catalogRoutes);
-  await app.register(clientRoutes);
-  await app.register(jobCardRoutes);
-  await app.register(servicesRoutes);
-  await app.register(invoiceRoutes);
-  await app.register(salesRoutes);
-  await app.register(connectorRoutes);
-  await app.register(dashboardRoutes);
-  await app.register(productRoutes);
-  await app.register(inventoryRoutes);
-  await app.register(vendorRoutes);
-  await app.register(enquiryRoutes);
-  await app.register(offersRoutes);
-  await app.register(notificationsRoutes);
-  await app.register(reportsRoutes);
-  await app.register(expenseRoutes);
-  await app.register(calendarRoutes);
-  await app.register(cameraRoutes);
-  await app.register(diagnosticsRoutes);
-  await app.register(garagesRoutes);
-  await app.register(webhookRoutes);
+    await api.register(authRoutes);
+    await api.register(meRoutes);
+    await api.register(branchRoutes);
+    await api.register(uploadRoutes);
+    await api.register(staffRoutes);
+    await api.register(attendanceRoutes);
+    await api.register(payrollRoutes);
+    await api.register(catalogRoutes);
+    await api.register(clientRoutes);
+    await api.register(jobCardRoutes);
+    await api.register(servicesRoutes);
+    await api.register(invoiceRoutes);
+    await api.register(salesRoutes);
+    await api.register(connectorRoutes);
+    await api.register(dashboardRoutes);
+    await api.register(productRoutes);
+    await api.register(inventoryRoutes);
+    await api.register(vendorRoutes);
+    await api.register(enquiryRoutes);
+    await api.register(offersRoutes);
+    await api.register(notificationsRoutes);
+    await api.register(reportsRoutes);
+    await api.register(expenseRoutes);
+    await api.register(calendarRoutes);
+    await api.register(cameraRoutes);
+    await api.register(diagnosticsRoutes);
+    await api.register(garagesRoutes);
+    await api.register(webhookRoutes);
+  }
+
+  // Register routes under /api and root /
+  await app.register(apiRoutes, { prefix: "/api" });
+  await app.register(apiRoutes);
+
+  // Serve production React SPA build if available
+  const frontendDist = path.resolve("frontend/dist");
+  if (existsSync(frontendDist)) {
+    await app.register(fastifyStatic, {
+      root: frontendDist,
+      prefix: "/",
+      decorateReply: false,
+    });
+
+    app.setNotFoundHandler((req, reply) => {
+      const url = req.raw.url || "";
+      if (url.startsWith("/api") || url.startsWith("/uploads") || url.startsWith("/documentation")) {
+        reply.status(404).send({ error: "Not found" });
+      } else {
+        reply.sendFile("index.html", frontendDist);
+      }
+    });
+  }
 
   return app;
 }

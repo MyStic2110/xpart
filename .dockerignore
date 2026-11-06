@@ -1,3 +1,7 @@
 node_modules
 dist
 .env
+.git
+.claude
+uploads
+.DS_Store
