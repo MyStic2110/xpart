@@ -74,7 +74,7 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
 
   useEffect(() => {
     function load() {
-      api.listNotifications().then(setNotifications).catch(() => {});
+      api.listNotifications().then(setNotifications).catch(() => { });
     }
     load();
     const interval = setInterval(load, 15000);
@@ -120,7 +120,7 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
                           try {
                             await api.markAllNotificationsRead();
                             setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-                          } catch {}
+                          } catch { }
                         }}
                         className="text-[11px] font-bold text-accent-700 hover:underline"
                       >
@@ -155,12 +155,11 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
                                 try {
                                   await api.markNotificationRead(n.id);
                                   setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, isRead: true } : item));
-                                } catch {}
+                                } catch { }
                               }
                             }}
-                            className={`flex items-start gap-3 p-3.5 text-left text-[12.5px] cursor-pointer transition-colors ${
-                              n.isRead ? "bg-white hover:bg-slate-50" : "bg-sky-50/[0.12] hover:bg-sky-50/[0.2] border-l-2 border-sky-400 pl-3"
-                            }`}
+                            className={`flex items-start gap-3 p-3.5 text-left text-[12.5px] cursor-pointer transition-colors ${n.isRead ? "bg-white hover:bg-slate-50" : "bg-sky-50/[0.12] hover:bg-sky-50/[0.2] border-l-2 border-sky-400 pl-3"
+                              }`}
                           >
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${iconColor}`}>
                               <Icon size={14} />
@@ -188,9 +187,8 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
             <button
               type="button"
               onClick={() => setBranchOpen((v) => !v)}
-              className={`group flex w-full items-center gap-2.5 rounded-xl border bg-white px-2.5 py-2 text-left transition-all ${
-                branchOpen ? "border-accent-500 ring-2 ring-accent-500/15" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-              }`}
+              className={`group flex w-full items-center gap-2.5 rounded-xl border bg-white px-2.5 py-2 text-left transition-all ${branchOpen ? "border-accent-500 ring-2 ring-accent-500/15" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                }`}
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-charcoal-900 text-white">
                 <Building2 size={14} strokeWidth={2} />
@@ -251,10 +249,9 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
             key={label}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-left ${
-                isActive
-                  ? "bg-charcoal-900 text-white shadow-sm"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-charcoal-900"
+              `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-left ${isActive
+                ? "bg-charcoal-900 text-white shadow-sm"
+                : "text-slate-500 hover:bg-slate-50 hover:text-charcoal-900"
               }`
             }
           >
@@ -269,10 +266,9 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-left ${
-              isActive || settingsActive || location.pathname.startsWith("/settings")
-                ? "bg-charcoal-900 text-white shadow-sm"
-                : "text-slate-500 hover:bg-slate-50 hover:text-charcoal-900"
+            `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-left ${isActive || settingsActive || location.pathname.startsWith("/settings")
+              ? "bg-charcoal-900 text-white shadow-sm"
+              : "text-slate-500 hover:bg-slate-50 hover:text-charcoal-900"
             }`
           }
         >
@@ -297,14 +293,12 @@ function BranchOption({ label, sub, active, onClick }: { label: string; sub: str
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${
-        active ? "bg-accent-500/10" : "hover:bg-slate-50"
-      }`}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${active ? "bg-accent-500/10" : "hover:bg-slate-50"
+        }`}
     >
       <div
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-          active ? "bg-accent-500 text-white" : "bg-slate-100 text-slate-400"
-        }`}
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-accent-500 text-white" : "bg-slate-100 text-slate-400"
+          }`}
       >
         <Building2 size={13} strokeWidth={2} />
       </div>

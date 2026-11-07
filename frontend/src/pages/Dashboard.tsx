@@ -22,7 +22,7 @@ import Sidebar from "../components/Sidebar";
 import Skeleton from "../components/Skeleton";
 import MetricCard from "../components/ui/MetricCard";
 import TopBar from "../components/ui/TopBar";
-import ForecastChart from "../components/ForecastChart";
+import ExecutiveForecast from "../components/ExecutiveForecast";
 
 type Granularity = "day" | "week" | "month";
 const GRAN_LABELS: Record<Granularity, string> = { day: "Days", week: "Weeks", month: "Months" };
@@ -549,110 +549,14 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Forecast — simple least-squares trend projection over the next 12 periods */}
+          {/* Executive Forecast & Cashflow Trajectory */}
           <div className="mt-10 animate-slideUp">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-[13px] font-semibold uppercase tracking-wide text-slate-400">Forecast</h2>
-                <p className="mt-1 text-[13px] text-slate-400">
-                  Projected revenue & new customers for the next {HORIZON_NOUN[granularity]} — linear trend on your own history.
-                </p>
-              </div>
-              <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
-                {(["day", "week", "month"] as Granularity[]).map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setGranularity(g)}
-                    className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                      granularity === g ? "bg-white text-charcoal-900 shadow-card" : "text-slate-500 hover:text-charcoal-900"
-                    }`}
-                  >
-                    {GRAN_LABELS[g]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {!forecast ? (
-              <div className="mt-4 grid grid-cols-1 gap-6">
-                <Skeleton className="h-56 w-full" />
-                <Skeleton className="h-56 w-full" />
-                <Skeleton className="h-56 w-full" />
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-6">
-                {/* Revenue forecast */}
-                <div className="rounded-xl2 border border-slate-100 bg-white p-6 shadow-card grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 items-center">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-[15px] font-semibold text-charcoal-900">Revenue forecast</h3>
-                      <p className="text-[12px] text-slate-400">Next {HORIZON_NOUN[granularity]} expected collections</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100/50">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Projected Total</span>
-                      <p className="text-[20px] font-bold text-charcoal-900 mt-1">{rupees(forecast.revenue.forecastTotal)}</p>
-                      <div className="mt-2">
-                        <TrendPill trend={forecast.revenue.trend} pct={forecast.revenue.growthPct} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-52 relative w-full">
-                    <ForecastChart history={forecast.revenue.history} forecast={forecast.revenue.forecast} format={rupeesShort} color="#0ea5e9" />
-                  </div>
-                </div>
-
-                {/* Expense forecast */}
-                <div className="rounded-xl2 border border-slate-100 bg-white p-6 shadow-card grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 items-center">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-[15px] font-semibold text-charcoal-900">Expense forecast</h3>
-                      <p className="text-[12px] text-slate-400">Next {HORIZON_NOUN[granularity]} expected expenditures</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100/50">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Projected Spend</span>
-                      <p className="text-[20px] font-bold text-charcoal-900 mt-1">{rupees(forecast.expenses.forecastTotal)}</p>
-                      <div className="mt-2">
-                        <TrendPill trend={forecast.expenses.trend === "up" ? "down" : forecast.expenses.trend === "down" ? "up" : "flat"} pct={forecast.expenses.growthPct} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-52 relative w-full">
-                    <ForecastChart history={forecast.expenses.history} forecast={forecast.expenses.forecast} format={rupeesShort} color="#f43f5e" />
-                  </div>
-                </div>
-
-                {/* New customer acquisition forecast */}
-                <div className="rounded-xl2 border border-slate-100 bg-white p-6 shadow-card grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 items-center">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="flex items-center gap-1.5 text-[15px] font-semibold text-charcoal-900">
-                        <UserPlus size={15} className="text-violet-500" /> New customers forecast
-                      </h3>
-                      <p className="text-[12px] text-slate-400">First-time customers, next {HORIZON_NOUN[granularity]}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100/50">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Projected Total</span>
-                      <p className="text-[20px] font-bold text-charcoal-900 mt-1">{forecast.acquisitions.forecastTotal} clients</p>
-                      <div className="mt-2">
-                        <TrendPill trend={forecast.acquisitions.trend} pct={forecast.acquisitions.growthPct} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-52 relative w-full">
-                    <ForecastChart
-                      history={forecast.acquisitions.history}
-                      forecast={forecast.acquisitions.forecast}
-                      format={(n) => `${Math.round(n)}`}
-                      color="#8b5cf6"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            <p className="mt-3 text-[11px] text-slate-400">
-              Projection uses an ordinary least-squares trend on historical periods; the shaded band reflects typical variance.
-              Not a guarantee — a planning estimate from past data only.
-            </p>
+            <ExecutiveForecast
+              forecast={forecast}
+              granularity={granularity}
+              onGranularityChange={setGranularity}
+              loading={!forecast}
+            />
           </div>
 
           {/* Branches */}

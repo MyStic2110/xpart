@@ -28,11 +28,11 @@ export default function JobCards() {
   const { branchParam } = useBranch();
 
   function load() {
-    api.listJobCards(branchParam).then(setJobCards).catch(() => {});
+    api.listJobCards(branchParam).then(setJobCards).catch(() => { });
   }
 
   useEffect(() => {
-    api.me().then((me) => setOrgName(me.org.name)).catch(() => {});
+    api.me().then((me) => setOrgName(me.org.name)).catch(() => { });
   }, []);
 
   useEffect(() => {
