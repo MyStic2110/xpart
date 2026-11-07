@@ -128,7 +128,7 @@ export default function CalendarPage() {
   return (
     <div className="flex h-screen w-full bg-slate-50">
       <Sidebar orgName={orgName} onLogout={logout} />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-8 sm:px-12 py-10">
           {/* Hero: month money story */}
           <div className="animate-slideUp rounded-2xl bg-gradient-to-r from-charcoal-900 via-slate-800 to-sky-900 p-6 text-white shadow-card">

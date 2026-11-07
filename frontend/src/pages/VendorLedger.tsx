@@ -129,7 +129,7 @@ export default function VendorLedger() {
   return (
     <div className="flex h-screen w-full bg-slate-50">
       <Sidebar orgName={orgName} onLogout={logout} />
-      <main className="flex-1 overflow-y-auto no-print">
+      <main className="flex-1 min-w-0 overflow-y-auto no-print">
         <div className="max-w-6xl mx-auto px-8 sm:px-12 py-10">
           <Link to="/vendors" className="flex items-center gap-1.5 text-[13px] font-medium text-slate-400 hover:text-charcoal-900 mb-4">
             <ArrowLeft size={14} /> Back to vendors

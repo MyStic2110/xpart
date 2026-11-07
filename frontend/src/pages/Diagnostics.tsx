@@ -216,7 +216,7 @@ export default function Diagnostics() {
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar orgName={orgName} onLogout={logout} />
 
-      <main className="flex-1 px-6 py-8 md:px-10">
+      <main className="flex-1 min-w-0 overflow-y-auto px-6 py-8 md:px-10">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

@@ -410,7 +410,7 @@ export default function DiagnosticReportPage() {
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar orgName={orgName} onLogout={logout} />
 
-      <main className="flex-1 px-6 py-8 md:px-10">
+      <main className="flex-1 min-w-0 overflow-y-auto px-6 py-8 md:px-10">
         <div className="mx-auto max-w-7xl">
           {/* Back nav */}
           <Link to="/diagnostics" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition-colors hover:text-charcoal-900">

@@ -92,7 +92,7 @@ export default function SettingsDashboard() {
   return (
     <div className="flex h-screen w-full bg-slate-50">
       <Sidebar orgName={orgName} onLogout={logout} />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto">
         <div className="max-w-6xl mx-auto px-8 sm:px-12 py-10 animate-fadeIn">
           <div className="flex items-center gap-2.5 animate-slideUp">
             <div className="w-8 h-8 rounded-lg bg-charcoal-900 flex items-center justify-center">

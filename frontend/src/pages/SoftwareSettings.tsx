@@ -216,7 +216,7 @@ export default function SoftwareSettings() {
   return (
     <div className="flex h-screen w-full bg-slate-50">
       <Sidebar orgName={orgName} onLogout={logout} />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-8 sm:px-12 py-10">
           {/* Header + sticky-ish action bar */}
           <div className="flex flex-wrap items-end justify-between gap-4 animate-slideUp">

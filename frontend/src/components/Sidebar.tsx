@@ -84,7 +84,7 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
-    <aside className="hidden md:flex w-64 flex-col justify-between border-r border-slate-100 bg-white px-4 py-6">
+    <aside className="hidden md:flex w-64 h-full shrink-0 flex-col justify-between border-r border-slate-100 bg-white px-4 py-5 z-20 overflow-hidden">
       <div>
         <div className="flex items-center justify-between px-2 mb-4 relative">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -242,7 +242,7 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
           </div>
         </div>
 
-        <nav className="flex flex-col gap-0.5">
+        <nav className="flex-1 overflow-y-auto min-h-0 pr-1 flex flex-col gap-0.5 custom-scrollbar">
           {NAV.map(({ label, icon: Icon, to }) => (
             <NavLink
               key={label}
