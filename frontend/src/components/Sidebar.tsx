@@ -84,9 +84,10 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
-    <aside className="hidden md:flex w-64 h-full shrink-0 flex-col justify-between border-r border-slate-100 bg-white px-4 py-5 z-20 overflow-hidden">
-      <div>
-        <div className="flex items-center justify-between px-2 mb-4 relative">
+    <aside className="hidden md:flex w-64 h-full shrink-0 flex-col border-r border-slate-200/80 bg-white px-4 py-4 z-20 overflow-hidden">
+      {/* Brand Header & Notifications */}
+      <div className="shrink-0">
+        <div className="flex items-center justify-between px-2 mb-3.5 relative">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-charcoal-900 flex items-center justify-center shrink-0">
               <Gauge size={15} strokeWidth={2} className="text-white" />
@@ -181,9 +182,9 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
         </div>
 
         {/* Branch switcher — scopes every operational module to the chosen branch */}
-        <div className="mb-6 px-1">
+        <div className="mb-3 px-1">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Viewing</label>
-          <div className="mt-1.5 relative">
+          <div className="mt-1 relative">
             <button
               type="button"
               onClick={() => setBranchOpen((v) => !v)}
@@ -191,19 +192,19 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
                 branchOpen ? "border-accent-500 ring-2 ring-accent-500/15" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-charcoal-900 text-white">
-                <Building2 size={15} strokeWidth={2} />
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-charcoal-900 text-white">
+                <Building2 size={14} strokeWidth={2} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold leading-tight text-charcoal-900">
+                <p className="truncate text-[12.5px] font-semibold leading-tight text-charcoal-900">
                   {selectedBranch ? selectedBranch.name : "All branches"}
                 </p>
-                <p className="truncate text-[10.5px] leading-tight text-slate-400">
+                <p className="truncate text-[10px] leading-tight text-slate-400">
                   {selectedBranch ? selectedBranch.city : `${branches.length} branch${branches.length === 1 ? "" : "es"}`}
                 </p>
               </div>
               <ChevronDown
-                size={15}
+                size={14}
                 className={`shrink-0 text-slate-400 transition-transform duration-200 ${branchOpen ? "rotate-180 text-accent-600" : "group-hover:text-slate-500"}`}
               />
             </button>
@@ -241,35 +242,37 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
             )}
           </div>
         </div>
-
-        <nav className="flex-1 overflow-y-auto min-h-0 pr-1 flex flex-col gap-0.5 custom-scrollbar">
-          {NAV.map(({ label, icon: Icon, to }) => (
-            <NavLink
-              key={label}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors text-left ${
-                  isActive
-                    ? "bg-charcoal-900 text-white"
-                    : "text-slate-400 hover:bg-slate-50 hover:text-charcoal-900"
-                }`
-              }
-            >
-              <Icon size={16} strokeWidth={1.75} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
       </div>
 
-      <div className="flex flex-col gap-0.5">
+      {/* Middle Navigation - Scrollable with pinned top and bottom */}
+      <nav className="flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-0.5 custom-scrollbar my-1">
+        {NAV.map(({ label, icon: Icon, to }) => (
+          <NavLink
+            key={label}
+            to={to}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-left ${
+                isActive
+                  ? "bg-charcoal-900 text-white shadow-sm"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-charcoal-900"
+              }`
+            }
+          >
+            <Icon size={16} strokeWidth={1.75} />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Pinned Bottom Navigation */}
+      <div className="shrink-0 flex flex-col gap-0.5 pt-2.5 border-t border-slate-100 mt-1">
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors text-left ${
+            `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-left ${
               isActive || settingsActive || location.pathname.startsWith("/settings")
-                ? "bg-charcoal-900 text-white"
-                : "text-slate-400 hover:bg-slate-50 hover:text-charcoal-900"
+                ? "bg-charcoal-900 text-white shadow-sm"
+                : "text-slate-500 hover:bg-slate-50 hover:text-charcoal-900"
             }`
           }
         >
@@ -279,7 +282,7 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
 
         <button
           onClick={onLogout}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium text-slate-400 transition-colors hover:bg-slate-50 hover:text-red-500 mt-1"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
         >
           <LogOut size={16} strokeWidth={1.75} />
           Log out

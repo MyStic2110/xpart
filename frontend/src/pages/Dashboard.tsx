@@ -20,7 +20,8 @@ import { api, MeResponse, DashboardMetrics, ForecastResponse } from "../api";
 import { useBranch } from "../BranchContext";
 import Sidebar from "../components/Sidebar";
 import Skeleton from "../components/Skeleton";
-import StatCard from "../components/StatCard";
+import MetricCard from "../components/ui/MetricCard";
+import TopBar from "../components/ui/TopBar";
 import ForecastChart from "../components/ForecastChart";
 
 type Granularity = "day" | "week" | "month";
@@ -90,11 +91,17 @@ export default function Dashboard() {
   const loading = !metrics;
 
   return (
-    <div className="flex h-screen w-full bg-slate-50">
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
       <Sidebar orgName={me?.org.name ?? "Workspace"} onLogout={logout} />
 
-      <main className="flex-1 min-w-0 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-8 sm:px-12 py-10 animate-fadeIn">
+      <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
+        <TopBar
+          title="Executive Dashboard"
+          subtitle={`Operations & financials for ${branchName}`}
+        />
+
+        <main className="flex-1 min-w-0 overflow-y-auto px-6 sm:px-10 py-8 custom-scrollbar">
+          <div className="max-w-7xl mx-auto space-y-8 animate-fadeIn">
           {!me ? (
             <div className="space-y-3">
               <Skeleton className="h-8 w-72" />
@@ -144,22 +151,22 @@ export default function Dashboard() {
           {/* Sales & Cash Inflow */}
           <h2 className="mt-10 text-[13px] font-semibold uppercase tracking-wide text-slate-400">Sales & Inflow</h2>
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <StatCard label="Sales today" value={rupees(metrics?.revenueToday ?? 0)} icon={Wallet} loading={loading} />
-            <StatCard label="Sales this week" value={rupees(metrics?.revenueWeek ?? 0)} icon={Wallet} loading={loading} />
-            <StatCard label="Sales this month" value={rupees(metrics?.revenueMonth ?? 0)} icon={TrendingUp} loading={loading} />
-            <StatCard
-              label="Xpart Profit Margin"
+            <MetricCard title="Sales today" value={rupees(metrics?.revenueToday ?? 0)} icon={Wallet} loading={loading} />
+            <MetricCard title="Sales this week" value={rupees(metrics?.revenueWeek ?? 0)} icon={Wallet} loading={loading} />
+            <MetricCard title="Sales this month" value={rupees(metrics?.revenueMonth ?? 0)} icon={TrendingUp} loading={loading} />
+            <MetricCard
+              title="Xpart Profit Margin"
               value={rupees(metrics?.partsMarginMonth ?? 0)}
               icon={TrendingUp}
               loading={loading}
-              info={metrics ? `Today: ${rupees(metrics.partsMarginToday)} · Week: ${rupees(metrics.partsMarginWeek)}` : undefined}
+              subtext={metrics ? `Today: ${rupees(metrics.partsMarginToday)} · Week: ${rupees(metrics.partsMarginWeek)}` : undefined}
             />
-            <StatCard
-              label="Pending invoices"
+            <MetricCard
+              title="Pending invoices"
               value={metrics?.pendingInvoices ?? 0}
               icon={Receipt}
               loading={loading}
-              info={metrics ? `${rupees(metrics.pendingAmount)} awaiting collection` : undefined}
+              subtext={metrics ? `${rupees(metrics.pendingAmount)} awaiting collection` : undefined}
             />
           </div>
 
@@ -233,50 +240,50 @@ export default function Dashboard() {
           {/* Third-party vendors — mechanics who bring vehicles in on a credit tab */}
           <h2 className="mt-10 text-[13px] font-semibold uppercase tracking-wide text-slate-400">Third-party vendors</h2>
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <StatCard
-              label="Vendor credit due"
+            <MetricCard
+              title="Vendor credit due"
               value={rupees(metrics?.thirdPartyOutstanding ?? 0)}
               icon={Receipt}
               loading={loading}
-              info="Unsettled vehicle invoices across all third-party vendors — cash to collect."
+              subtext="Unsettled vehicle invoices across all third-party vendors — cash to collect."
             />
-            <StatCard
-              label="Collected from vendors (month)"
+            <MetricCard
+              title="Collected from vendors (month)"
               value={rupees(metrics?.thirdPartyCollectedMonth ?? 0)}
               icon={Wallet}
               loading={loading}
             />
-            <StatCard
-              label="Third-party vendors"
+            <MetricCard
+              title="Third-party vendors"
               value={metrics?.thirdPartyClients ?? 0}
               icon={Truck}
               loading={loading}
-              info="Vendors bringing in customer vehicles regularly."
+              subtext="Vendors bringing in customer vehicles regularly."
             />
           </div>
 
           {/* Expenses & Outflow */}
           <h2 className="mt-10 text-[13px] font-semibold uppercase tracking-wide text-slate-400">Expenses & Outflow</h2>
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Expenses today" value={rupees(metrics?.expenseToday ?? 0)} icon={TrendingDown} loading={loading} />
-            <StatCard label="Expenses this week" value={rupees(metrics?.expenseWeek ?? 0)} icon={TrendingDown} loading={loading} />
-            <StatCard label="Expenses this month" value={rupees(metrics?.expenseMonth ?? 0)} icon={TrendingDown} loading={loading} />
-            <StatCard
-              label="Net balance (Month)"
+            <MetricCard title="Expenses today" value={rupees(metrics?.expenseToday ?? 0)} icon={TrendingDown} loading={loading} />
+            <MetricCard title="Expenses this week" value={rupees(metrics?.expenseWeek ?? 0)} icon={TrendingDown} loading={loading} />
+            <MetricCard title="Expenses this month" value={rupees(metrics?.expenseMonth ?? 0)} icon={TrendingDown} loading={loading} />
+            <MetricCard
+              title="Net balance (Month)"
               value={metrics ? rupees((metrics.revenueMonth || 0) - (metrics.expenseMonth || 0)) : rupees(0)}
               icon={TrendingUp}
               loading={loading}
-              info={metrics ? `${((metrics.revenueMonth || 0) - (metrics.expenseMonth || 0)) >= 0 ? "Surplus cash" : "Deficit cash"}` : undefined}
+              subtext={metrics ? `${((metrics.revenueMonth || 0) - (metrics.expenseMonth || 0)) >= 0 ? "Surplus cash" : "Deficit cash"}` : undefined}
             />
           </div>
 
           {/* Operations Overview */}
           <h2 className="mt-10 text-[13px] font-semibold uppercase tracking-wide text-slate-400">Operations</h2>
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Job cards today" value={metrics?.jobCardsToday ?? 0} icon={ClipboardList} loading={loading} />
-            <StatCard label="Upcoming appointments" value={metrics?.upcomingAppointments ?? 0} icon={CalendarCheck} loading={loading} />
-            <StatCard label="Total clients" value={metrics?.totalClients ?? 0} icon={Users} loading={loading} />
-            <StatCard label="Staff & mechanics" value={metrics?.staffCount ?? 0} icon={UserCog} loading={loading} />
+            <MetricCard title="Job cards today" value={metrics?.jobCardsToday ?? 0} icon={ClipboardList} loading={loading} />
+            <MetricCard title="Upcoming appointments" value={metrics?.upcomingAppointments ?? 0} icon={CalendarCheck} loading={loading} />
+            <MetricCard title="Total clients" value={metrics?.totalClients ?? 0} icon={Users} loading={loading} />
+            <MetricCard title="Staff & mechanics" value={metrics?.staffCount ?? 0} icon={UserCog} loading={loading} />
           </div>
 
           {/* Visual Analytics Charts */}
@@ -676,6 +683,7 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 }

@@ -1,33 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, ClipboardList, Receipt, TrendingUp, XCircle } from "lucide-react";
+import { ColumnDef } from "@tanstack/react-table";
+import { Plus, ClipboardList, Receipt, CheckCircle2, IndianRupee } from "lucide-react";
 import { api, JobCardListItem } from "../api";
 import { useBranch } from "../BranchContext";
 import Sidebar from "../components/Sidebar";
 import Dropdown from "../components/Dropdown";
-import Skeleton from "../components/Skeleton";
-import StatCard from "../components/StatCard";
-import TableToolbar from "../components/TableToolbar";
-import Pagination from "../components/Pagination";
+import TopBar from "../components/ui/TopBar";
+import MetricCard from "../components/ui/MetricCard";
+import DataTable from "../components/ui/DataTable";
 import { downloadCsv } from "../utils/csv";
-
-const PAGE_SIZE = 10;
+import { cn } from "../lib/utils";
 
 const STATUS_STYLES: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-500",
-  in_progress: "bg-amber-50 text-amber-600",
-  completed: "bg-emerald-50 text-emerald-600",
-  billed: "bg-accent-500/10 text-accent-600",
-  cancelled: "bg-red-50 text-red-600",
+  draft: "bg-slate-100 text-slate-600 border border-slate-200",
+  in_progress: "bg-amber-50 text-amber-700 border border-amber-200/60",
+  completed: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
+  billed: "bg-accent-500/10 text-accent-700 border border-accent-500/20",
+  cancelled: "bg-rose-50 text-rose-700 border border-rose-200/60",
 };
 
 export default function JobCards() {
   const navigate = useNavigate();
   const [orgName, setOrgName] = useState("Workspace");
   const [jobCards, setJobCards] = useState<JobCardListItem[] | null>(null);
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
   const { branchParam } = useBranch();
 
   function load() {
@@ -43,34 +40,98 @@ export default function JobCards() {
     load();
   }, [branchParam]);
 
-  useEffect(() => setPage(1), [search, statusFilter]);
-
   function logout() {
     localStorage.removeItem("token");
     navigate("/login", { replace: true });
   }
 
-  const filtered = useMemo(() => {
+  const filteredData = useMemo(() => {
     if (!jobCards) return [];
-    const q = search.trim().toLowerCase();
-    return jobCards.filter((jc) => {
-      const matchesSearch = !q || jc.clientName.toLowerCase().includes(q) || jc.clientPhone.includes(q) || jc.plateNumber.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "all" || jc.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [jobCards, search, statusFilter]);
-
-  const pageCount = Math.max(Math.ceil(filtered.length / PAGE_SIZE), 1);
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    if (statusFilter === "all") return jobCards;
+    return jobCards.filter((jc) => jc.status === statusFilter);
+  }, [jobCards, statusFilter]);
 
   const totalRevenue = jobCards?.reduce((sum, jc) => sum + jc.total, 0) ?? 0;
   const completedCount = jobCards?.filter((jc) => jc.status === "completed" || jc.status === "billed").length ?? 0;
   const invoicedCount = jobCards?.filter((jc) => jc.hasInvoice).length ?? 0;
 
+  const columns = useMemo<ColumnDef<JobCardListItem>[]>(
+    () => [
+      {
+        accessorKey: "jobDate",
+        header: "Date",
+        cell: ({ row }) => (
+          <span className="font-medium text-slate-700 whitespace-nowrap">
+            {row.original.jobDate}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "clientName",
+        header: "Client",
+        cell: ({ row }) => (
+          <div>
+            <p className="font-semibold text-charcoal-900 leading-tight">{row.original.clientName}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{row.original.clientPhone}</p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "plateNumber",
+        header: "Vehicle Plate",
+        cell: ({ row }) => (
+          <span className="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs font-medium text-slate-700 tracking-wide">
+            {row.original.plateNumber}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "total",
+        header: "Total",
+        cell: ({ row }) => (
+          <span className="font-semibold text-charcoal-900">
+            ₹{(row.original.total / 100).toLocaleString("en-IN")}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+              STATUS_STYLES[row.original.status] ?? "bg-slate-100 text-slate-600"
+            )}
+          >
+            {row.original.status.replace("_", " ")}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "hasInvoice",
+        header: "Invoice",
+        cell: ({ row }) => (
+          <span
+            className={cn(
+              "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium",
+              row.original.hasInvoice
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "text-slate-400"
+            )}
+          >
+            {row.original.hasInvoice ? "Generated" : "—"}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
+
   function exportCsv() {
     downloadCsv(
       "job-cards.csv",
-      filtered.map((jc) => ({
+      filteredData.map((jc) => ({
         Date: jc.jobDate,
         Client: jc.clientName,
         Phone: jc.clientPhone,
@@ -82,115 +143,94 @@ export default function JobCards() {
     );
   }
 
+  const isLoading = jobCards === null;
+
   return (
-    <div className="flex h-screen w-full bg-slate-50">
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
       <Sidebar orgName={orgName} onLogout={logout} />
-      <main className="flex-1 min-w-0 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-8 sm:px-12 py-10">
-          <div className="flex items-center justify-between animate-slideUp">
-            <div>
-              <h1 className="text-[1.75rem] font-semibold text-charcoal-900 tracking-tight">Job Cards</h1>
-              <p className="mt-1 text-[14px] text-slate-400">Every service visit, from intake to invoice.</p>
-            </div>
+
+      <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
+        <TopBar
+          title="Job Cards"
+          subtitle="Every service visit, from vehicle intake to invoice collection"
+          actions={
             <button
               onClick={() => navigate("/job-cards/new")}
-              className="flex items-center gap-2 rounded-xl bg-charcoal-900 px-4 py-2.5 text-[13.5px] font-medium text-white hover:bg-charcoal-800"
+              className="flex items-center gap-1.5 rounded-xl bg-charcoal-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-charcoal-800 transition-colors"
             >
-              <Plus size={15} />
+              <Plus className="h-4 w-4" />
               Create Job Card
             </button>
-          </div>
+          }
+        />
 
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <StatCard label="Total job cards" value={jobCards?.length ?? 0} icon={ClipboardList} loading={!jobCards} />
-            <StatCard label="Completed" value={completedCount} icon={TrendingUp} loading={!jobCards} />
-            <StatCard label="Invoiced" value={invoicedCount} icon={Receipt} loading={!jobCards} />
-            <StatCard label="Total value" value={`₹${(totalRevenue / 100).toLocaleString("en-IN")}`} icon={Receipt} loading={!jobCards} />
-          </div>
-
-          <div className="mt-6">
-            <TableToolbar
-              search={search}
-              onSearch={setSearch}
-              placeholder="Search client, phone, vehicle..."
-              onDownload={exportCsv}
-              filters={
-                <Dropdown
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  className="w-44"
-                  size="sm"
-                  capitalize
-                  options={[
-                    { value: "all", label: "All statuses" },
-                    ...["draft", "in_progress", "completed", "billed", "cancelled"].map((s) => ({ value: s, label: s.replace("_", " ") })),
-                  ]}
-                />
-              }
-            />
-          </div>
-
-          <div className="mt-4 rounded-xl2 border border-slate-100 bg-white shadow-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[12px] font-medium text-slate-400">
-                    <th className="px-5 py-3.5">Date</th>
-                    <th className="px-5 py-3.5">Client</th>
-                    <th className="px-5 py-3.5">Vehicle</th>
-                    <th className="px-5 py-3.5">Total</th>
-                    <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5">Invoice</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {!jobCards ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={i}>
-                        {Array.from({ length: 6 }).map((__, j) => (
-                          <td key={j} className="px-5 py-4"><Skeleton className="h-4 w-20" /></td>
-                        ))}
-                      </tr>
-                    ))
-                  ) : filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-16 text-center">
-                        <XCircle size={28} strokeWidth={1.5} className="mx-auto text-slate-300" />
-                        <p className="mt-3 text-sm font-medium text-charcoal-900">No job cards found</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    pageRows.map((jc) => (
-                      <tr
-                        key={jc.id}
-                        onClick={() => navigate(`/job-cards/${jc.id}`)}
-                        className="cursor-pointer text-[13.5px] text-charcoal-900 hover:bg-slate-50/60"
-                      >
-                        <td className="px-5 py-4 whitespace-nowrap">{jc.jobDate}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <p className="font-medium">{jc.clientName}</p>
-                          <p className="text-[12px] text-slate-400">{jc.clientPhone}</p>
-                        </td>
-                        <td className="px-5 py-4 text-slate-500 whitespace-nowrap">{jc.plateNumber}</td>
-                        <td className="px-5 py-4 font-medium whitespace-nowrap">₹{(jc.total / 100).toLocaleString("en-IN")}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${STATUS_STYLES[jc.status]}`}>
-                            {jc.status.replace("_", " ")}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap text-[12px] text-slate-400">
-                          {jc.hasInvoice ? "Generated" : "—"}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+        <main className="flex-1 min-w-0 overflow-y-auto px-6 sm:px-10 py-8 custom-scrollbar">
+          <div className="max-w-7xl mx-auto space-y-6 animate-fadeIn">
+            {/* KPI Metric Cards */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard
+                title="Total Job Cards"
+                value={jobCards?.length ?? 0}
+                icon={ClipboardList}
+                loading={isLoading}
+                subtext="All intake records across current branch"
+              />
+              <MetricCard
+                title="Completed Services"
+                value={completedCount}
+                icon={CheckCircle2}
+                loading={isLoading}
+                delta={{
+                  value: jobCards?.length ? `${Math.round((completedCount / jobCards.length) * 100)}%` : "0%",
+                  trend: "up",
+                  label: "Completion rate",
+                }}
+              />
+              <MetricCard
+                title="Invoiced Jobs"
+                value={invoicedCount}
+                icon={Receipt}
+                loading={isLoading}
+                subtext="Converted to client billings"
+              />
+              <MetricCard
+                title="Total Value"
+                value={`₹${(totalRevenue / 100).toLocaleString("en-IN")}`}
+                icon={IndianRupee}
+                loading={isLoading}
+                subtext="Gross intake revenue potential"
+              />
             </div>
-            <Pagination page={page} pageCount={pageCount} total={filtered.length} pageSize={PAGE_SIZE} onPage={setPage} />
+
+            {/* Modern Headless Data Table */}
+            <div className="mt-8">
+              <DataTable
+                columns={columns}
+                data={filteredData}
+                searchPlaceholder="Search client name, phone number, vehicle plate..."
+                onExportCsv={exportCsv}
+                onRowClick={(row) => navigate(`/job-cards/${row.id}`)}
+                filters={
+                  <Dropdown
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    className="w-40"
+                    size="sm"
+                    capitalize
+                    options={[
+                      { value: "all", label: "All statuses" },
+                      ...["draft", "in_progress", "completed", "billed", "cancelled"].map((s) => ({
+                        value: s,
+                        label: s.replace("_", " "),
+                      })),
+                    ]}
+                  />
+                }
+              />
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

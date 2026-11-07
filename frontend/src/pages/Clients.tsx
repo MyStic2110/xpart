@@ -4,7 +4,8 @@ import { Users, Wallet, Repeat, Eye, XCircle, Plus, Truck, X } from "lucide-reac
 import { api, ClientListItem } from "../api";
 import Sidebar from "../components/Sidebar";
 import Skeleton from "../components/Skeleton";
-import StatCard from "../components/StatCard";
+import MetricCard from "../components/ui/MetricCard";
+import TopBar from "../components/ui/TopBar";
 import TableToolbar from "../components/TableToolbar";
 import Pagination from "../components/Pagination";
 import { downloadCsv } from "../utils/csv";
@@ -140,41 +141,48 @@ export default function Clients() {
   ];
 
   return (
-    <div className="flex h-screen w-full bg-slate-50">
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
       <Sidebar orgName={orgName} onLogout={logout} />
-      <main className="flex-1 min-w-0 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-8 sm:px-12 py-10">
-          <div className="flex items-start justify-between animate-slideUp">
-            <div>
-              <h1 className="text-[1.75rem] font-semibold text-charcoal-900 tracking-tight">Clients</h1>
-              <p className="mt-1 text-[14px] text-slate-400">Your customer base plus third-party vendors who bring in vehicles on credit.</p>
-            </div>
+
+      <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
+        <TopBar
+          title="Clients & Third Parties"
+          subtitle="Customer directory, visit recency segments, and vendor tabs"
+          actions={
             <button
               onClick={() => setShowAdd(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-charcoal-900 px-4 py-2.5 text-[13px] font-medium text-white hover:bg-charcoal-800"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-charcoal-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-charcoal-800 transition-colors"
             >
-              <Plus size={15} /> Add client
+              <Plus className="h-4 w-4" /> Add client
             </button>
-          </div>
+          }
+        />
 
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Total clients" value={customers.length} icon={Users} loading={!clients} />
-            <StatCard
-              label="Repeat clients"
-              value={repeatCount}
-              icon={Repeat}
-              loading={!clients}
-              info="Customers who have visited more than once."
-            />
-            <StatCard label="Lifetime revenue" value={`₹${(totalSpend / 100).toLocaleString("en-IN")}`} icon={Wallet} loading={!clients} />
-            <StatCard
-              label="Third-party credit due"
-              value={`₹${(vendorOutstanding / 100).toLocaleString("en-IN")}`}
-              icon={Truck}
-              loading={!clients}
-              info={`${vendors.length} third-party vendor${vendors.length === 1 ? "" : "s"} · unsettled vehicle invoices`}
-            />
-          </div>
+        <main className="flex-1 min-w-0 overflow-y-auto px-6 sm:px-10 py-8 custom-scrollbar">
+          <div className="max-w-7xl mx-auto space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricCard title="Total clients" value={customers.length} icon={Users} loading={!clients} subtext="Registered customer accounts" />
+              <MetricCard
+                title="Repeat clients"
+                value={repeatCount}
+                icon={Repeat}
+                loading={!clients}
+                subtext="Customers visited more than once"
+                delta={{
+                  value: customers.length ? `${Math.round((repeatCount / customers.length) * 100)}%` : "0%",
+                  trend: "up",
+                  label: "Retention",
+                }}
+              />
+              <MetricCard title="Lifetime revenue" value={`₹${(totalSpend / 100).toLocaleString("en-IN")}`} icon={Wallet} loading={!clients} subtext="Gross historical customer spend" />
+              <MetricCard
+                title="Third-party credit due"
+                value={`₹${(vendorOutstanding / 100).toLocaleString("en-IN")}`}
+                icon={Truck}
+                loading={!clients}
+                subtext={`${vendors.length} vendors · unsettled invoices`}
+              />
+            </div>
 
           <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
@@ -291,6 +299,7 @@ export default function Clients() {
           </div>
         </div>
       </main>
+      </div>
 
       {/* Add client modal */}
       {showAdd && (
