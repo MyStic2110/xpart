@@ -18,6 +18,7 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             cd ~/xpart
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
             sudo docker compose -f docker-compose.prod.yml up -d --build app
             sudo docker compose -f docker-compose.prod.yml exec -T app npx tsx src/db/migrate.ts
