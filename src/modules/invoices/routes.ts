@@ -34,6 +34,18 @@ export async function invoiceRoutes(app: FastifyInstance) {
     }
   });
 
+  app.post("/job-cards/:id/invoice", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    try {
+      const result = await completeJobCardAndGenerateInvoice(auth.orgId, id);
+      return reply.code(result.alreadyExisted ? 200 : 201).send(result);
+    } catch (err) {
+      if (err instanceof InvoiceError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
   app.get("/invoices", { preHandler: requireAuth }, async (req, reply) => {
     const auth = req.auth!;
     const { branchId } = req.query as { branchId?: string };

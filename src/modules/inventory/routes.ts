@@ -8,13 +8,12 @@ import {
   inventoryConsumptions,
   jobCards,
   jobCardProducts,
-  jobCardServices,
-  invoices,
   vehicles,
   branches
 } from "@/db/schema";
 import { requireAuth, requireRole } from "@/middleware/auth";
 import { createNotification } from "@/modules/notifications/routes";
+import { recalculateJobCardTotals } from "@/modules/jobcards/service";
 
 const canManage = [requireAuth, requireRole("super_admin", "org_owner", "admin", "branch_manager")];
 
@@ -127,38 +126,6 @@ export async function inventoryRoutes(app: FastifyInstance) {
       const firstBranch = await tx.query.branches.findFirst({ where: eq(branches.orgId, auth.orgId) });
       const branchIdToUse = lot.branchId || firstBranch?.id;
 
-      // Helper function to recalculate job card totals
-      async function recalculateJobCard(tx: any, jobCardId: string) {
-        const servicesSum = await tx
-          .select({ sum: sql<number>`coalesce(sum(qty * price), 0)::int` })
-          .from(jobCardServices)
-          .where(eq(jobCardServices.jobCardId, jobCardId));
-
-        const productsSum = await tx
-          .select({ sum: sql<number>`coalesce(sum(qty * price), 0)::int` })
-          .from(jobCardProducts)
-          .where(eq(jobCardProducts.jobCardId, jobCardId));
-
-        const subtotal = (servicesSum[0]?.sum ?? 0) + (productsSum[0]?.sum ?? 0);
-        const jc = await tx.query.jobCards.findFirst({ where: eq(jobCards.id, jobCardId) });
-        if (jc) {
-          const discounted = Math.max(subtotal - jc.discount, 0);
-          const total = Math.round(discounted * (1 + jc.taxPercent / 100));
-          await tx
-            .update(jobCards)
-            .set({ subtotal, total })
-            .where(eq(jobCards.id, jobCardId));
-
-          const inv = await tx.query.invoices.findFirst({ where: eq(invoices.jobCardId, jobCardId) });
-          if (inv) {
-            await tx
-              .update(invoices)
-              .set({ subtotal, total })
-              .where(eq(invoices.id, inv.id));
-          }
-        }
-      }
-
       for (const it of d.items) {
         // Insert inventory item
         const [createdItem] = await tx
@@ -229,7 +196,7 @@ export async function inventoryRoutes(app: FastifyInstance) {
               .where(eq(inventoryItems.id, createdItem.id));
 
             // Recalculate job card subtotal and total
-            await recalculateJobCard(tx, activeJobCard.id);
+            await recalculateJobCardTotals(tx, activeJobCard.id);
           }
         }
       }

@@ -519,7 +519,7 @@ export default function CreateJobCard() {
                         placeholder="Select service..."
                         className="flex-1"
                         size="sm"
-                        options={services.map((s) => ({ value: s.id, label: s.name }))}
+                        options={services.filter((s) => s.name.trim().length > 0).map((s) => ({ value: s.id, label: s.name }))}
                       />
                       <input
                         type="number"

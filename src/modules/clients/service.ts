@@ -48,10 +48,19 @@ interface ClientUpsertInput {
   referredByCode?: string; // another client's referralCode — resolved to referredByClientId
 }
 
+export function normalizePhone(raw: string): string {
+  const stripped = raw.replace(/[\s()-]+/g, "");
+  const digits = stripped.replace(/^\+/, "");
+  if (/^91\d{10}$/.test(digits)) return digits.slice(2);
+  if (/^0\d{10}$/.test(digits)) return digits.slice(1);
+  return stripped;
+}
+
 // Find-or-create by phone (the autocomplete/dedup key) — updates any newly
 // provided profile fields onto the existing record rather than overwriting blindly.
 export async function findOrCreateClient(orgId: string, input: ClientUpsertInput) {
-  const existing = await db.query.clients.findFirst({ where: and(eq(clients.orgId, orgId), eq(clients.phone, input.phone)) });
+  const phone = normalizePhone(input.phone);
+  const existing = await db.query.clients.findFirst({ where: and(eq(clients.orgId, orgId), eq(clients.phone, phone)) });
 
   // Resolve a referral code to the referring client (self-referrals ignored).
   let referredByClientId: string | null = null;
@@ -86,7 +95,7 @@ export async function findOrCreateClient(orgId: string, input: ClientUpsertInput
     .values({
       orgId,
       name: input.name,
-      phone: input.phone,
+      phone,
       address: input.address || null,
       gender: input.gender ?? "unknown",
       dateOfBirth: input.dateOfBirth || null,

@@ -289,7 +289,14 @@ export interface Service {
   id: string;
   name: string;
   defaultPrice: number;
+  recurrenceDays: number | null;
   isActive: boolean;
+}
+
+export interface ServiceInput {
+  name: string;
+  defaultPrice: number;
+  recurrenceDays?: number | null;
 }
 
 export interface JobCardLineItemInput {
@@ -790,7 +797,7 @@ export interface InvoiceDetail {
   };
   client: ClientRecord | null;
   vehicle: { plateNumber: string } | null;
-  lineItems: { id: string; serviceName: string; qty: number; price: number }[];
+  lineItems: { id: string; serviceName: string; qty: number; price: number; type?: "service" | "product" }[];
   payments: Payment[];
   paidSoFar: number;
   balanceDue: number;
@@ -848,7 +855,7 @@ export interface JobCardDetail {
     fuelType: string | null;
     odometerReading: number | null;
   } | null;
-  lineItems: { id: string; serviceName: string; qty: number; price: number }[];
+  lineItems: { id: string; serviceName: string; qty: number; price: number; type?: "service" | "product" }[];
   serviceAdvisorName: string | null;
   invoice: { id: string; status: string; total: number; finalizedAt: string | null } | null;
 }
@@ -1299,12 +1306,33 @@ export const api = {
   triggerInsuranceReminders: () => request<{ success: boolean; processed: number; details: any[] }>("/vehicles/insurance-reminders/trigger", { method: "POST" }),
   getClient360: (id: string) => request<Client360>(`/clients/${id}/360`),
   listServices: () => request<Service[]>("/services"),
+  createService: (input: ServiceInput) =>
+    request<Service>("/services", { method: "POST", body: JSON.stringify(input) }),
+  updateService: (id: string, input: Partial<ServiceInput>) =>
+    request<Service>(`/services/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteService: (id: string) =>
+    request<{ success: true; archived?: boolean }>(`/services/${id}`, { method: "DELETE" }),
   createJobCard: (input: CreateJobCardInput) =>
     request<{ jobCard: { id: string } }>("/job-cards", { method: "POST", body: JSON.stringify(input) }),
   listJobCards: (branchId?: string) => request<JobCardListItem[]>(`/job-cards${branchId ? `?branchId=${branchId}` : ""}`),
   getJobCardDetail: (id: string) => request<JobCardDetail>(`/job-cards/${id}`),
+  addJobCardItems: (
+    id: string,
+    input: {
+      services?: { serviceId: string; qty: number; price: number }[];
+      products?: { productId?: string | null; productName: string; qty: number; price: number }[];
+    }
+  ) => request<{ jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}/items`, { method: "POST", body: JSON.stringify(input) }),
+  removeJobCardItem: (id: string, itemId: string, type: "service" | "product") =>
+    request<{ success: true; jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}/items/${itemId}?type=${type}`, { method: "DELETE" }),
+  updateJobCard: (id: string, input: { discount?: number; taxPercent?: number; status?: "draft" | "in_progress" }) =>
+    request<{ jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   completeJobCard: (id: string) =>
     request<{ jobCard: unknown; invoice: { id: string }; alreadyExisted: boolean }>(`/job-cards/${id}/complete`, { method: "POST" }),
+  markJobCardComplete: (id: string) =>
+    request<{ jobCard: JobCardDetail["jobCard"]; alreadyCompleted: boolean }>(`/job-cards/${id}/mark-complete`, { method: "POST" }),
+  raiseJobCardInvoice: (id: string) =>
+    request<{ jobCard: unknown; invoice: { id: string }; alreadyExisted: boolean }>(`/job-cards/${id}/invoice`, { method: "POST" }),
   listInvoices: (branchId?: string) => request<InvoiceListItem[]>(`/invoices${branchId ? `?branchId=${branchId}` : ""}`),
   getInvoiceDetail: (id: string) => request<InvoiceDetail>(`/invoices/${id}`),
   recordPayment: (id: string, input: { mode: "cash" | "upi" | "card" | "wallet"; amount: number; txnRef?: string }) =>

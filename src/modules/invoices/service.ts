@@ -23,27 +23,53 @@ function getFinancialYearSuffix(date = new Date()): string {
 }
 
 export async function completeJobCardAndGenerateInvoice(orgId: string, jobCardId: string) {
-  const jobCard = await db.query.jobCards.findFirst({ where: and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, orgId)) });
-  if (!jobCard) throw new InvoiceError("job card not found", 404);
-  if (jobCard.status === "cancelled") throw new InvoiceError("cannot complete a cancelled job card", 409);
-
-  const existingInvoice = await db.query.invoices.findFirst({ where: eq(invoices.jobCardId, jobCardId) });
-  if (existingInvoice) {
-    return { jobCard, invoice: existingInvoice, alreadyExisted: true };
-  }
-
   return await db.transaction(async (tx) => {
+    const [jobCard] = await tx
+      .select()
+      .from(jobCards)
+      .where(and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, orgId)))
+      .for("update");
+    if (!jobCard) throw new InvoiceError("job card not found", 404);
+    if (jobCard.status === "cancelled") throw new InvoiceError("cannot complete a cancelled job card", 409);
+
+    const existingInvoice = await tx.query.invoices.findFirst({ where: eq(invoices.jobCardId, jobCardId) });
+    if (existingInvoice) {
+      return { jobCard, invoice: existingInvoice, alreadyExisted: true };
+    }
+
+    const [svcCount] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(jobCardServices)
+      .where(eq(jobCardServices.jobCardId, jobCardId));
+    const [prodCount] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(jobCardProducts)
+      .where(eq(jobCardProducts.jobCardId, jobCardId));
+    if ((svcCount?.count ?? 0) + (prodCount?.count ?? 0) === 0) {
+      throw new InvoiceError("add at least one service or product before raising an invoice", 400);
+    }
+
+    const isZeroTotal = jobCard.total <= 0;
+    const now = new Date();
     const [updatedJobCard] = await tx
       .update(jobCards)
-      .set({ status: "completed", completedAt: new Date() })
+      .set({
+        status: isZeroTotal || jobCard.status === "billed" ? "billed" : "completed",
+        completedAt: jobCard.completedAt ?? now,
+      })
       .where(eq(jobCards.id, jobCardId))
       .returning();
 
-    const invoiceCount = await tx
-      .select({ count: sql<number>`count(*)::int` })
+    // Serialize invoice sequence allocation per org inside the transaction.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${orgId}))`);
+    const seqRows = await tx
+      .select({
+        maxSeq: sql<number>`COALESCE(MAX(CASE WHEN ${invoices.invoiceNo} ~ '^[0-9]+/' THEN split_part(${invoices.invoiceNo}, '/', 1)::int ELSE 0 END), 0)::int`,
+        count: sql<number>`count(*)::int`,
+      })
       .from(invoices)
       .where(eq(invoices.orgId, orgId));
-    const nextNum = (invoiceCount[0]?.count ?? 0) + 1;
+    const nextNum = Math.max(seqRows[0]?.maxSeq ?? 0, seqRows[0]?.count ?? 0) + 1;
     const serial = nextNum.toString().padStart(4, "0");
     const invoiceNo = `${serial}/INV/${getFinancialYearSuffix()}`;
 
@@ -60,7 +86,8 @@ export async function completeJobCardAndGenerateInvoice(orgId: string, jobCardId
         subtotal: jobCard.subtotal,
         discount: jobCard.discount,
         total: jobCard.total,
-        status: "draft",
+        status: isZeroTotal ? "paid" : "draft",
+        finalizedAt: isZeroTotal ? now : null,
       })
       .returning();
 
@@ -320,26 +347,38 @@ interface RecordPaymentInput {
 }
 
 export async function recordPayment(orgId: string, invoiceId: string, input: RecordPaymentInput) {
-  const invoice = await db.query.invoices.findFirst({ where: and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)) });
-  if (!invoice) throw new PaymentError("invoice not found", 404);
-  if (invoice.status === "cancelled") throw new PaymentError("cannot pay a cancelled invoice", 409);
-  if (invoice.status === "paid") throw new PaymentError("invoice is already fully paid", 409);
-  if (input.amount <= 0) throw new PaymentError("payment amount must be positive");
-
-  const existingPayments = await db.select().from(payments).where(eq(payments.invoiceId, invoiceId));
-  const alreadyPaid = existingPayments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = invoice.total - alreadyPaid;
-  if (input.amount > remaining) throw new PaymentError(`payment exceeds balance due (${remaining} paise remaining)`);
-
-  const payer = await db.query.clients.findFirst({ where: eq(clients.id, invoice.clientId) });
-  const isThirdParty = payer?.clientType === "third_party";
-  if (isThirdParty && input.mode === "wallet") {
-    throw new PaymentError("third-party vendors settle in cash/UPI/card — no wallet");
+  if (!Number.isInteger(input.amount) || input.amount <= 0) {
+    throw new PaymentError("payment amount must be a positive integer");
   }
 
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
+    const [invoice] = await tx
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)))
+      .for("update");
+    if (!invoice) throw new PaymentError("invoice not found", 404);
+    if (invoice.status === "cancelled") throw new PaymentError("cannot pay a cancelled invoice", 409);
+    if (invoice.status === "paid") throw new PaymentError("invoice is already fully paid", 409);
+
+    const existingPayments = await tx.select().from(payments).where(eq(payments.invoiceId, invoiceId));
+    const alreadyPaid = existingPayments.reduce((sum, p) => sum + p.amount, 0);
+    const remaining = invoice.total - alreadyPaid;
+    if (remaining <= 0) throw new PaymentError("invoice is already fully paid", 409);
+    if (input.amount > remaining) throw new PaymentError(`payment exceeds balance due (${remaining} paise remaining)`);
+
+    const payer = await tx.query.clients.findFirst({ where: eq(clients.id, invoice.clientId) });
+    const isThirdParty = payer?.clientType === "third_party";
+    if (isThirdParty && input.mode === "wallet") {
+      throw new PaymentError("third-party vendors settle in cash/UPI/card — no wallet");
+    }
+
     if (input.mode === "wallet") {
-      const wallet = await tx.query.wallets.findFirst({ where: eq(wallets.clientId, invoice.clientId) });
+      const [wallet] = await tx
+        .select()
+        .from(wallets)
+        .where(eq(wallets.clientId, invoice.clientId))
+        .for("update");
       if (!wallet) throw new PaymentError("client has no wallet");
       if (wallet.balance < input.amount) throw new PaymentError("insufficient wallet balance");
 
@@ -385,7 +424,7 @@ export async function recordPayment(orgId: string, invoiceId: string, input: Rec
     // Mark the job card billed once the invoice is fully settled.
     if (newStatus === "paid") {
       await tx.update(jobCards).set({ status: "billed" }).where(eq(jobCards.id, invoice.jobCardId));
-      
+
       // If the client has a referrer and this is their first paid invoice, credit the referral bonus.
       if (payer && payer.referredByClientId) {
         const paidInvoicesCount = await tx
@@ -398,7 +437,7 @@ export async function recordPayment(orgId: string, invoiceId: string, input: Rec
               sql`${invoices.id} != ${invoiceId}`
             )
           );
-        
+
         const otherPaidCount = paidInvoicesCount[0]?.count ?? 0;
         if (otherPaidCount === 0) {
           await creditReferralBonus(tx, orgId, payer.referredByClientId, invoice.clientId, invoiceId);
@@ -407,14 +446,16 @@ export async function recordPayment(orgId: string, invoiceId: string, input: Rec
       }
     }
 
-    await createNotification(orgId, {
-      title: newStatus === "paid" ? "Invoice Paid" : "Partial Payment Received",
-      message: `Received ₹${(input.amount / 100).toFixed(2)} via ${input.mode.toUpperCase()}${earnedPoints > 0 ? ` · +${earnedPoints} points` : ""}.`,
-      type: "payment",
-    });
-
-    return { invoice: updatedInvoice, payment, earnedPoints };
+    return { invoice: updatedInvoice, payment, earnedPoints, newStatus };
   });
+
+  await createNotification(orgId, {
+    title: result.newStatus === "paid" ? "Invoice Paid" : "Partial Payment Received",
+    message: `Received ₹${(input.amount / 100).toFixed(2)} via ${input.mode.toUpperCase()}${result.earnedPoints > 0 ? ` · +${result.earnedPoints} points` : ""}.`,
+    type: "payment",
+  });
+
+  return { invoice: result.invoice, payment: result.payment, earnedPoints: result.earnedPoints };
 }
 
 // Redeem loyalty points against an invoice's outstanding balance. Points are
@@ -424,24 +465,32 @@ export async function recordPayment(orgId: string, invoiceId: string, input: Rec
 export async function redeemPoints(orgId: string, invoiceId: string, points: number) {
   if (!Number.isInteger(points) || points <= 0) throw new PaymentError("points to redeem must be a positive whole number");
 
-  const invoice = await db.query.invoices.findFirst({ where: and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)) });
-  if (!invoice) throw new PaymentError("invoice not found", 404);
-  if (invoice.status === "cancelled") throw new PaymentError("cannot redeem against a cancelled invoice", 409);
-  if (invoice.status === "paid") throw new PaymentError("invoice is already fully paid", 409);
+  const result = await db.transaction(async (tx) => {
+    const [invoice] = await tx
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)))
+      .for("update");
+    if (!invoice) throw new PaymentError("invoice not found", 404);
+    if (invoice.status === "cancelled") throw new PaymentError("cannot redeem against a cancelled invoice", 409);
+    if (invoice.status === "paid") throw new PaymentError("invoice is already fully paid", 409);
 
-  const payer = await db.query.clients.findFirst({ where: eq(clients.id, invoice.clientId) });
-  if (payer?.clientType === "third_party") {
-    throw new PaymentError("third-party vendors do not have loyalty points", 409);
-  }
+    const payer = await tx.query.clients.findFirst({ where: eq(clients.id, invoice.clientId) });
+    if (payer?.clientType === "third_party") {
+      throw new PaymentError("third-party vendors do not have loyalty points", 409);
+    }
 
-  return await db.transaction(async (tx) => {
     const cfg = await getLoyaltyConfig(orgId, invoice.branchId);
     if (!cfg.enabled) throw new PaymentError("loyalty points are not enabled for this branch", 409);
     if (cfg.redeemPaisePerPoint <= 0) throw new PaymentError("point redemption value is not configured");
 
-    const wallet = await tx.query.wallets.findFirst({ where: eq(wallets.clientId, invoice.clientId) });
+    const [wallet] = await tx
+      .select()
+      .from(wallets)
+      .where(eq(wallets.clientId, invoice.clientId))
+      .for("update");
     if (!wallet) throw new PaymentError("client has no wallet");
-    
+
     // Sync points balance first
     const pointsBalance = await getAndUpdateUsablePoints(tx, wallet.id, orgId);
     if (pointsBalance <= 0) throw new PaymentError("client has no points to redeem");
@@ -458,7 +507,7 @@ export async function redeemPoints(orgId: string, invoiceId: string, points: num
       throw new PaymentError(`redemption exceeds balance due — redeem at most ${maxPoints} points`);
     }
 
-    const newPoints = wallet.points - points;
+    const newPoints = pointsBalance - points;
     await tx.update(wallets).set({ points: newPoints }).where(eq(wallets.id, wallet.id));
     await tx.insert(pointsTransactions).values({
       walletId: wallet.id,
@@ -487,12 +536,14 @@ export async function redeemPoints(orgId: string, invoiceId: string, points: num
       await tx.update(jobCards).set({ status: "billed" }).where(eq(jobCards.id, invoice.jobCardId));
     }
 
-    await createNotification(orgId, {
-      title: "Points Redeemed",
-      message: `Redeemed ${points} points (₹${(value / 100).toFixed(2)}) against an invoice.`,
-      type: "payment",
-    });
-
     return { invoice: updatedInvoice, payment, redeemedPoints: points, redeemedValue: value, pointsRemaining: newPoints };
   });
+
+  await createNotification(orgId, {
+    title: "Points Redeemed",
+    message: `Redeemed ${points} points (₹${(result.redeemedValue / 100).toFixed(2)}) against an invoice.`,
+    type: "payment",
+  });
+
+  return result;
 }

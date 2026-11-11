@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { db } from "@/db/client";
 import { products } from "@/db/schema";
 import { requireAuth, requireRole } from "@/middleware/auth";
@@ -9,7 +9,7 @@ import { requireAuth, requireRole } from "@/middleware/auth";
 const canManage = [requireAuth, requireRole("super_admin", "org_owner", "admin")];
 
 const baseSchema = {
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   mrp: z.coerce.number().nonnegative(), // rupees from client → paise on save
   volume: z.string().optional().or(z.literal("")),
   barcode: z.string().optional().or(z.literal("")),
@@ -26,7 +26,11 @@ const clean = (v?: string) => (v && v.trim() ? v.trim() : null);
 export async function productRoutes(app: FastifyInstance) {
   app.get("/products", { preHandler: requireAuth }, async (req, reply) => {
     const auth = req.auth!;
-    const rows = await db.select().from(products).where(eq(products.orgId, auth.orgId)).orderBy(products.name);
+    const rows = await db
+      .select()
+      .from(products)
+      .where(and(eq(products.orgId, auth.orgId), eq(products.isActive, true)))
+      .orderBy(products.name);
     return reply.send(rows);
   });
 
@@ -37,7 +41,23 @@ export async function productRoutes(app: FastifyInstance) {
     const d = parsed.data;
 
     const dup = await db.query.products.findFirst({ where: and(eq(products.orgId, auth.orgId), eq(products.name, d.name)) });
-    if (dup) return reply.code(409).send({ error: "a product with this name already exists" });
+    if (dup) {
+      if (dup.isActive) return reply.code(409).send({ error: "a product with this name already exists" });
+      const [reactivated] = await db
+        .update(products)
+        .set({
+          mrp: Math.round(d.mrp * 100),
+          volume: clean(d.volume),
+          barcode: clean(d.barcode),
+          category: clean(d.category),
+          subCategory: clean(d.subCategory),
+          sku: clean(d.sku),
+          isActive: d.isActive ?? true,
+        })
+        .where(and(eq(products.id, dup.id), eq(products.orgId, auth.orgId)))
+        .returning();
+      return reply.code(201).send(reactivated);
+    }
 
     const [row] = await db
       .insert(products)
@@ -64,7 +84,13 @@ export async function productRoutes(app: FastifyInstance) {
     const d = parsed.data;
 
     const updates: Record<string, unknown> = {};
-    if (d.name !== undefined) updates.name = d.name;
+    if (d.name !== undefined) {
+      const dup = await db.query.products.findFirst({
+        where: and(eq(products.orgId, auth.orgId), eq(products.name, d.name), ne(products.id, id)),
+      });
+      if (dup) return reply.code(409).send({ error: "a product with this name already exists" });
+      updates.name = d.name;
+    }
     if (d.mrp !== undefined) updates.mrp = Math.round(d.mrp * 100);
     if (d.volume !== undefined) updates.volume = clean(d.volume);
     if (d.barcode !== undefined) updates.barcode = clean(d.barcode);
@@ -86,11 +112,27 @@ export async function productRoutes(app: FastifyInstance) {
   app.delete("/products/:id", { preHandler: canManage }, async (req, reply) => {
     const auth = req.auth!;
     const { id } = req.params as { id: string };
-    const [deleted] = await db
-      .delete(products)
-      .where(and(eq(products.id, id), eq(products.orgId, auth.orgId)))
-      .returning();
-    if (!deleted) return reply.code(404).send({ error: "product not found" });
-    return reply.send({ success: true });
+    try {
+      const [deleted] = await db
+        .delete(products)
+        .where(and(eq(products.id, id), eq(products.orgId, auth.orgId)))
+        .returning();
+      if (!deleted) return reply.code(404).send({ error: "product not found" });
+      return reply.send({ success: true });
+    } catch (err: unknown) {
+      const code = (err as { code?: string; cause?: { code?: string } })?.code
+        ?? (err as { cause?: { code?: string } })?.cause?.code;
+      if (code === "23503") {
+        // Product is referenced by historical job cards or inventory — archive instead of hard deleting.
+        const [archived] = await db
+          .update(products)
+          .set({ isActive: false })
+          .where(and(eq(products.id, id), eq(products.orgId, auth.orgId)))
+          .returning();
+        if (!archived) return reply.code(404).send({ error: "product not found" });
+        return reply.send({ success: true, archived: true });
+      }
+      throw err;
+    }
   });
 }

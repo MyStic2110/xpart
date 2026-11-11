@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth } from "@/middleware/auth";
-import { createJobCard, listJobCards, JobCardError } from "./service";
+import { normalizePhone } from "@/modules/clients/service";
+import { createJobCard, listJobCards, addJobCardItems, removeJobCardItem, updateJobCard, markJobCardComplete, JobCardError } from "./service";
 import { getJobCardDetail, JobCardDetailError } from "./detail-service";
 
 const clientSchema = z.object({
-  phone: z.string().min(10).max(15),
-  name: z.string().min(1),
+  phone: z.string().transform((v) => normalizePhone(v)).pipe(z.string().min(10).max(15)),
+  name: z.string().trim().min(1),
   address: z.string().optional().or(z.literal("")),
   gender: z.enum(["male", "female", "other", "unknown"]).optional(),
   dateOfBirth: z.string().optional().or(z.literal("")),
@@ -78,6 +79,85 @@ export async function jobCardRoutes(app: FastifyInstance) {
         vehicle: { ...parsed.data.vehicle, makeId: parsed.data.vehicle.makeId || undefined, modelId: parsed.data.vehicle.modelId || undefined },
       });
       return reply.code(201).send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  const addItemsSchema = z.object({
+    services: z
+      .array(z.object({ serviceId: z.string().uuid(), qty: z.coerce.number().int().positive(), price: z.coerce.number().int().nonnegative() }))
+      .optional(),
+    products: z
+      .array(z.object({
+        productId: z.string().uuid().optional().nullable(),
+        productName: z.string().trim().min(1),
+        qty: z.coerce.number().int().positive(),
+        price: z.coerce.number().int().nonnegative(),
+      }))
+      .optional(),
+  });
+
+  app.post("/job-cards/:id/items", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    const parsed = addItemsSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+
+    try {
+      const result = await addJobCardItems(auth, id, parsed.data);
+      return reply.code(201).send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.delete("/job-cards/:id/items/:itemId", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id, itemId } = req.params as { id: string; itemId: string };
+    const { type } = req.query as { type?: string };
+    if (type !== "service" && type !== "product") {
+      return reply.code(400).send({ error: "query param type must be 'service' or 'product'" });
+    }
+
+    try {
+      const result = await removeJobCardItem(auth, id, itemId, type);
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  const patchJobCardSchema = z.object({
+    discount: z.coerce.number().int().nonnegative().optional(),
+    taxPercent: z.coerce.number().int().min(0).max(100).optional(),
+    status: z.enum(["draft", "in_progress"]).optional(),
+  });
+
+  app.patch("/job-cards/:id", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    const parsed = patchJobCardSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+
+    try {
+      const result = await updateJobCard(auth, id, parsed.data);
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.post("/job-cards/:id/mark-complete", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    try {
+      const result = await markJobCardComplete(auth.orgId, id);
+      return reply.send(result);
     } catch (err) {
       if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
       throw err;

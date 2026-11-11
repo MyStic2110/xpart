@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, AlertCircle, CheckCircle2, Wallet, Sparkles } from "lucide-react";
+import { ArrowLeft, AlertCircle, CheckCircle2, Wallet, Sparkles, Download, Printer } from "lucide-react";
 import { api, InvoiceDetail, Payment } from "../api";
+import { downloadInvoicePdf } from "../utils/invoicePdf";
 import Sidebar from "../components/Sidebar";
 import Skeleton from "../components/Skeleton";
 import Dropdown from "../components/Dropdown";
@@ -119,14 +120,26 @@ export default function InvoiceDetailPage() {
                     {detail.client?.phone} · {detail.vehicle?.plateNumber}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  {(detail.invoice.status === "paid" || detail.invoice.status === "partial") && (
-                    <button
-                      onClick={() => window.print()}
-                      className="inline-flex items-center gap-2 rounded-xl bg-charcoal-900 px-4 py-2 text-[13px] font-medium text-white hover:bg-charcoal-800 transition-colors"
-                    >
-                      Print / Save PDF
-                    </button>
+                <div className="flex items-center gap-2.5">
+                  {detail.invoice.status !== "cancelled" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => downloadInvoicePdf(detail, orgName)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-charcoal-900 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-charcoal-800 transition-colors"
+                      >
+                        <Download size={14} />
+                        Download PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-[13px] font-medium text-charcoal-900 hover:bg-slate-50 transition-colors"
+                      >
+                        <Printer size={14} />
+                        Print
+                      </button>
+                    </>
                   )}
                   <span className={`rounded-full px-3 py-1 text-[12px] font-medium capitalize ${
                     detail.invoice.status === "paid" ? "bg-emerald-50 text-emerald-600" :
@@ -151,6 +164,14 @@ export default function InvoiceDetailPage() {
                 <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col items-end gap-1 text-[13px]">
                   <div className="flex gap-8"><span className="text-slate-400">Subtotal</span><span className="font-medium text-charcoal-900 w-24 text-right">{rupees(detail.invoice.subtotal)}</span></div>
                   <div className="flex gap-8"><span className="text-slate-400">Discount</span><span className="font-medium text-charcoal-900 w-24 text-right">−{rupees(detail.invoice.discount)}</span></div>
+                  {Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0) > 0 && (
+                    <div className="flex gap-8">
+                      <span className="text-slate-400">Tax / GST</span>
+                      <span className="font-medium text-charcoal-900 w-24 text-right">
+                        {rupees(Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0))}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex gap-8 text-[15px]"><span className="font-semibold text-charcoal-900">Total</span><span className="font-semibold text-charcoal-900 w-24 text-right">{rupees(detail.invoice.total)}</span></div>
                   <div className="flex gap-8"><span className="text-slate-400">Paid so far</span><span className="font-medium text-emerald-600 w-24 text-right">{rupees(detail.paidSoFar)}</span></div>
                   <div className="flex gap-8 text-[15px]"><span className="font-semibold text-charcoal-900">Balance due</span><span className="font-semibold text-charcoal-900 w-24 text-right">{rupees(detail.balanceDue)}</span></div>
@@ -326,6 +347,14 @@ export default function InvoiceDetailPage() {
                 <span className="font-medium text-red-500">−{rupees(detail.invoice.discount)}</span>
               </div>
             )}
+            {Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0) > 0 && (
+              <div className="flex justify-between w-full">
+                <span className="text-slate-400">Tax / GST</span>
+                <span className="font-medium">
+                  {rupees(Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0))}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between w-full text-[14px] border-t border-slate-100 pt-2 font-bold text-charcoal-900">
               <span>Total Amount</span>
               <span>{rupees(detail.invoice.total)}</span>
@@ -352,6 +381,10 @@ export default function InvoiceDetailPage() {
 
       <style>{`
         @media print {
+          html, body {
+            overflow: visible !important;
+            height: auto !important;
+          }
           body * {
             visibility: hidden;
           }

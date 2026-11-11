@@ -6,6 +6,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  PaginationState,
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
@@ -37,14 +38,21 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
-  const [pageSize, setPageSize] = React.useState(initialPageSize);
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: initialPageSize,
+  });
 
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter, pagination: { pageIndex: 0, pageSize } },
+    state: { sorting, globalFilter, pagination },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    onGlobalFilterChange: (updater) => {
+      setGlobalFilter(updater);
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    },
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -158,22 +166,24 @@ export function DataTable<TData, TValue>({
             <p>
               Showing{" "}
               <span className="font-semibold text-charcoal-900">
-                {table.getState().pagination.pageIndex * pageSize + (table.getRowModel().rows.length > 0 ? 1 : 0)}
+                {table.getState().pagination.pageIndex * pagination.pageSize + (table.getRowModel().rows.length > 0 ? 1 : 0)}
               </span>{" "}
               to{" "}
               <span className="font-semibold text-charcoal-900">
-                {Math.min((table.getState().pagination.pageIndex + 1) * pageSize, data.length)}
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )}
               </span>{" "}
-              of <span className="font-semibold text-charcoal-900">{data.length}</span> entries
+              of <span className="font-semibold text-charcoal-900">{table.getFilteredRowModel().rows.length}</span> entries
             </p>
             <div className="flex items-center gap-1.5">
               <span>Rows:</span>
               <select
-                value={pageSize}
+                value={pagination.pageSize}
                 onChange={(e) => {
                   const newSize = Number(e.target.value);
-                  setPageSize(newSize);
-                  table.setPageSize(newSize);
+                  setPagination({ pageIndex: 0, pageSize: newSize });
                 }}
                 className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-charcoal-900 focus:outline-none"
               >

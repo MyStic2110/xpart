@@ -52,13 +52,17 @@ export default function Enquiry() {
   }
 
   useEffect(() => {
-    api.me().then((me) => setOrgName(me.org.name)).catch(() => {});
-    api.listStaff().then(setStaff).catch(() => {});
+    api.me().then((me) => setOrgName(me.org.name)).catch(() => { });
+    api.listStaff().then(setStaff).catch(() => { });
     Promise.all([api.listServices().catch(() => [] as Service[]), api.listProducts().catch(() => [] as Product[])]).then(
-      ([s, p]) => setCatalog([...s.map((x) => x.name), ...p.map((x) => x.name)])
+      ([s, p]) =>
+        setCatalog([
+          ...s.map((x) => x.name.trim()).filter(Boolean),
+          ...p.map((x) => x.name.trim()).filter(Boolean),
+        ])
     );
-    api.listVehicleMakes().then(setMakes).catch(() => {});
-    api.listVehicleModels().then(setModels).catch(() => {});
+    api.listVehicleMakes().then(setMakes).catch(() => { });
+    api.listVehicleModels().then(setModels).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -144,7 +148,7 @@ export default function Enquiry() {
               search={search}
               onSearch={setSearch}
               placeholder="Search client, phone, enquiry for..."
-              onDownload={() => {}}
+              onDownload={() => { }}
               filters={
                 <div className="flex gap-2">
                   <Dropdown
