@@ -59,6 +59,7 @@ export async function buildApp() {
   });
 
   // Register Swagger
+  if (process.env.NODE_ENV !== "production") {
   await app.register(swagger, {
     openapi: {
       info: {
@@ -92,6 +93,8 @@ export async function buildApp() {
       deepLinking: false,
     },
   });
+
+  }
 
   async function apiRoutes(api: any) {
     api.get("/health", async () => {

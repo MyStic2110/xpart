@@ -1,5 +1,24 @@
 const BASE = "/api";
 
+async function parseResponse<T>(res: Response, skipAuthRedirect: boolean, fallbackMsg: string): Promise<T> {
+  const data = await res.json().catch(() => ({} as Record<string, any>));
+  if (res.status === 401 && !skipAuthRedirect) {
+    localStorage.removeItem("token");
+    if (
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/login") &&
+      !window.location.pathname.startsWith("/signup")
+    ) {
+      window.location.replace("/login");
+    }
+  }
+  if (!res.ok) {
+    const errText = typeof data.error === "string" ? data.error : data.error?.message;
+    throw new Error(errText || `${fallbackMsg} (${res.status})`);
+  }
+  return data as T;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("token");
   // Only declare a JSON content-type when we actually send a body. A bodyless
@@ -13,9 +32,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       ...(options?.headers || {}),
     },
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || data.error || "request failed");
-  return data as T;
+  return parseResponse<T>(res, path.startsWith("/auth/"), "Request failed");
+
+
 }
 
 export interface SignupInput {
@@ -1258,9 +1277,9 @@ export const api = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || data.error || "upload failed");
-    return data;
+    return parseResponse(res, false, "Upload failed");
+
+
   },
   markAttendance: (input: MarkAttendanceInput) =>
     request<AttendanceRecord>("/attendance", { method: "POST", body: JSON.stringify(input) }),
@@ -1432,9 +1451,9 @@ export const api = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || data.error || "upload failed");
-    return data;
+    return parseResponse(res, false, "Upload failed");
+
+
   },
   reprocessDiagnosticReport: (id: string, useOcr?: boolean) =>
     request<DiagnosticReportDetail>(`/diagnostics/reports/${id}/reprocess`, {
