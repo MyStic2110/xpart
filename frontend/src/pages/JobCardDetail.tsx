@@ -14,9 +14,10 @@ import {
   Save,
   Download,
   RotateCcw,
+  FileText,
 } from "lucide-react";
 import { api, JobCardDetail, Service, Product } from "../api";
-import { downloadInvoicePdf } from "../utils/invoicePdf";
+import { downloadInvoicePdf, downloadJobCardDocumentPdf } from "../utils/invoicePdf";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/ui/TopBar";
 import Dropdown from "../components/Dropdown";
@@ -312,6 +313,23 @@ export default function JobCardDetailPage() {
     }
   }
 
+  function handleDownloadJobCardDoc(docType: "estimate" | "proforma") {
+    if (!detail) return;
+    if ((addMode === "service" && selServiceId) || (addMode === "product" && prodName.trim())) {
+      setError("Please add or save your pending item before downloading the PDF.");
+      return;
+    }
+    if (detail.lineItems.length === 0) {
+      setError("Add at least one service or product before downloading a document.");
+      return;
+    }
+    setError("");
+    downloadJobCardDocumentPdf(detail, orgName, docType, {
+      discountPaise: previewDiscountPaise,
+      taxPercent: previewTaxPct,
+    });
+  }
+
   const canRaiseInvoice = Boolean(
     detail && detail.jobCard.status !== "cancelled" && !detail.invoice
   );
@@ -346,7 +364,31 @@ export default function JobCardDetailPage() {
           }
           actions={
             detail ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {detail.jobCard.status !== "cancelled" && !detail.invoice && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadJobCardDoc("estimate")}
+                      disabled={detail.lineItems.length === 0}
+                      title="Download Estimate PDF to share with customer"
+                      className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Estimate PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadJobCardDoc("proforma")}
+                      disabled={detail.lineItems.length === 0}
+                      title="Download Proforma Invoice PDF for payment approval"
+                      className="flex items-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 shadow-sm hover:bg-sky-100 disabled:opacity-50 transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Proforma PDF
+                    </button>
+                  </>
+                )}
                 {isEditable && (
                   <>
                     <button
