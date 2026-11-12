@@ -136,6 +136,22 @@ export async function buildApp() {
   // Serve production React SPA build if available
   const frontendDist = path.resolve("frontend/dist");
   if (existsSync(frontendDist)) {
+    // Serve index.html for browser page navigations/refreshes before Fastify
+    // matches root-mounted API routes (e.g. GET /job-cards/:id, /clients, /products).
+    app.addHook("onRequest", async (req, reply) => {
+      const url = req.raw.url || "";
+      if (
+        req.method === "GET" &&
+        !url.startsWith("/api") &&
+        !url.startsWith("/uploads") &&
+        !url.startsWith("/documentation") &&
+        !url.startsWith("/assets") &&
+        !req.headers.authorization &&
+        (req.headers.accept || "").includes("text/html")
+      ) {
+        return reply.sendFile("index.html", frontendDist);
+      }
+    });
     await app.register(fastifyStatic, {
       root: frontendDist,
       prefix: "/",
