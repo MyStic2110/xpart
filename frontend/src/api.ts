@@ -1027,7 +1027,7 @@ export interface RfqHistoryStats {
   totalRfqs: number;
   completedRfqs: number;
   avgBudget: number;
-  avgResponseTimeMinutes: number;
+  avgResponseTimeMinutes: number | null;
   savingsTotal: number;
 }
 

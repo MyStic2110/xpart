@@ -800,12 +800,30 @@ export async function vendorRoutes(app: FastifyInstance) {
       .from(partsRequests)
       .where(and(eq(partsRequests.orgId, auth.orgId), sql`max_budget is not null`));
 
+    // Dynamic savings calculated from actual accepted quotes vs request max budget
+    const [savingsRow] = await db
+      .select({
+        savingsTotal: sql<number>`COALESCE(SUM(GREATEST(${partsRequests.maxBudget} - ${partsQuotes.price}, 0)), 0)::int`,
+      })
+      .from(partsQuotes)
+      .innerJoin(partsRequests, eq(partsRequests.id, partsQuotes.requestId))
+      .where(and(eq(partsRequests.orgId, auth.orgId), eq(partsQuotes.status, "accepted")));
+
+    // Dynamic average vendor response time in minutes from request creation to quote receipt
+    const [responseTimeRow] = await db
+      .select({
+        avgMinutes: sql<number>`ROUND(AVG(EXTRACT(EPOCH FROM (${partsQuotes.createdAt} - ${partsRequests.createdAt})) / 60))::int`,
+      })
+      .from(partsQuotes)
+      .innerJoin(partsRequests, eq(partsRequests.id, partsQuotes.requestId))
+      .where(eq(partsRequests.orgId, auth.orgId));
+
     return reply.send({
       totalRfqs: totalRow?.count ?? 0,
       completedRfqs: completedRow?.count ?? 0,
       avgBudget: savingRow?.avgBudget ?? 0,
-      avgResponseTimeMinutes: 3,
-      savingsTotal: 865000,
+      avgResponseTimeMinutes: responseTimeRow?.avgMinutes ?? null,
+      savingsTotal: savingsRow?.savingsTotal ?? 0,
     });
   });
 }

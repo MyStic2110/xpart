@@ -901,7 +901,7 @@ export default function Vendors() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard label="Total B2B RFQs" value={rfqStats?.totalRfqs ?? 0} icon={Radio} loading={!rfqStats} />
                 <StatCard label="Completed Orders" value={rfqStats?.completedRfqs ?? 0} icon={Check} loading={!rfqStats} />
-                <StatCard label="Avg Response Time" value={`${rfqStats?.avgResponseTimeMinutes ?? 3} mins`} icon={Clock} loading={!rfqStats} />
+                <StatCard label="Avg Response Time" value={rfqStats?.avgResponseTimeMinutes != null ? `${rfqStats.avgResponseTimeMinutes} mins` : "--"} icon={Clock} loading={!rfqStats} />
                 <StatCard label="Total Saved" value={`₹${((rfqStats?.savingsTotal ?? 0) / 100).toLocaleString("en-IN")}`} icon={TrendingUp} loading={!rfqStats} info="Estimated saving generated using B2B competitive RFQ bidding compared to budget bounds." />
               </div>
 
