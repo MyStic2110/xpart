@@ -5,6 +5,7 @@ import {
   jobCards,
   jobCardServices,
   jobCardProducts,
+  jobCardMechanics,
   jobCardJobWorks,
   branches,
   services,
@@ -590,4 +591,102 @@ export async function markJobCardComplete(orgId: string, jobCardId: string) {
     .where(and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, orgId)))
     .returning();
   return { jobCard: updated, alreadyCompleted: false };
+}
+
+export async function cancelJobCard(auth: AuthContext, jobCardId: string, reason?: string) {
+  const jc = await db.query.jobCards.findFirst({
+    where: and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)),
+  });
+  if (!jc) throw new JobCardError("job card not found", 404);
+  if (jc.status === "cancelled") throw new JobCardError("job card is already cancelled", 409);
+  if (jc.status === "billed") throw new JobCardError("cannot cancel a billed job card", 409);
+
+  const existingInvoice = await db.query.invoices.findFirst({ where: eq(invoices.jobCardId, jobCardId) });
+  if (existingInvoice && (existingInvoice.status === "paid" || existingInvoice.status === "partial")) {
+    throw new JobCardError("cannot cancel a job card with a paid or partial invoice", 409);
+  }
+
+  return await db.transaction(async (tx) => {
+    if (existingInvoice) {
+      await tx.update(invoices).set({ status: "cancelled" }).where(eq(invoices.id, existingInvoice.id));
+    }
+    const newRemarks = reason
+      ? (jc.remarks ? `${jc.remarks}\n[Cancelled: ${reason}]` : `[Cancelled: ${reason}]`)
+      : jc.remarks;
+
+    const [updated] = await tx
+      .update(jobCards)
+      .set({ status: "cancelled", remarks: newRemarks })
+      .where(and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)))
+      .returning();
+
+    return { jobCard: updated };
+  });
+}
+
+export async function reopenJobCard(auth: AuthContext, jobCardId: string) {
+  const isOwnerOrAdmin = auth.assignments.some((a) =>
+    ["org_owner", "admin", "super_admin"].includes(a.role)
+  );
+  if (!isOwnerOrAdmin) {
+    throw new JobCardError("only org owners or admins can reopen job cards", 403);
+  }
+
+  const jc = await db.query.jobCards.findFirst({
+    where: and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)),
+  });
+  if (!jc) throw new JobCardError("job card not found", 404);
+  if (jc.status === "billed") throw new JobCardError("cannot reopen a billed job card", 409);
+  if (jc.status === "in_progress") throw new JobCardError("job card is already in progress", 409);
+
+  const existingInvoice = await db.query.invoices.findFirst({ where: eq(invoices.jobCardId, jobCardId) });
+  if (existingInvoice && (existingInvoice.status === "paid" || existingInvoice.status === "partial")) {
+    throw new JobCardError("cannot reopen a job card that already has payments on an invoice", 409);
+  }
+
+  return await db.transaction(async (tx) => {
+    if (existingInvoice) {
+      await tx.delete(invoices).where(eq(invoices.id, existingInvoice.id));
+    }
+
+    const [updated] = await tx
+      .update(jobCards)
+      .set({ status: "in_progress", completedAt: null })
+      .where(and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)))
+      .returning();
+
+    return { jobCard: updated };
+  });
+}
+
+export async function deleteJobCard(auth: AuthContext, jobCardId: string) {
+  const isOwnerOrAdmin = auth.assignments.some((a) =>
+    ["org_owner", "admin", "super_admin"].includes(a.role)
+  );
+  if (!isOwnerOrAdmin) {
+    throw new JobCardError("only org owners or admins can delete job cards", 403);
+  }
+
+  const jc = await db.query.jobCards.findFirst({
+    where: and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)),
+  });
+  if (!jc) throw new JobCardError("job card not found", 404);
+
+  const existingInvoice = await db.query.invoices.findFirst({ where: eq(invoices.jobCardId, jobCardId) });
+  if (existingInvoice && (existingInvoice.status === "paid" || existingInvoice.status === "partial")) {
+    throw new JobCardError("cannot delete job card with an active paid or partial invoice. Cancel or refund payments first.", 409);
+  }
+
+  return await db.transaction(async (tx) => {
+    if (existingInvoice) {
+      await tx.delete(invoices).where(eq(invoices.id, existingInvoice.id));
+    }
+    await tx.delete(jobCardServices).where(eq(jobCardServices.jobCardId, jobCardId));
+    await tx.delete(jobCardProducts).where(eq(jobCardProducts.jobCardId, jobCardId));
+    await tx.delete(jobCardMechanics).where(eq(jobCardMechanics.jobCardId, jobCardId));
+    await tx.delete(jobCardJobWorks).where(eq(jobCardJobWorks.jobCardId, jobCardId));
+    await tx.delete(jobCards).where(and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)));
+
+    return { ok: true, id: jobCardId };
+  });
 }

@@ -21,6 +21,7 @@ import {
   Clock,
   Truck,
   X,
+  XCircle,
 } from "lucide-react";
 import { api, JobCardDetail, JobCardJobWork, Service, Product } from "../api";
 import { downloadInvoicePdf, downloadJobCardDocumentPdf } from "../utils/invoicePdf";
@@ -95,6 +96,14 @@ export default function JobCardDetailPage() {
   const [jwNotes, setJwNotes] = useState("");
   const [submittingJobWork, setSubmittingJobWork] = useState(false);
 
+  // Cancel & Delete Modals & User Roles
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   function load() {
     return api
       .getJobCardDetail(id)
@@ -108,7 +117,10 @@ export default function JobCardDetailPage() {
   }
 
   useEffect(() => {
-    api.me().then((me) => setOrgName(me.org.name)).catch(() => {});
+    api.me().then((me) => {
+      setOrgName(me.org.name);
+      setUserRoles(me.roles ?? []);
+    }).catch(() => {});
     api.listServices().then(setServices).catch(() => {});
     api.listProducts().then(setProducts).catch(() => {});
     load();
@@ -435,13 +447,44 @@ export default function JobCardDetailPage() {
     setError("");
     setNotice("");
     try {
-      await api.updateJobCard(id, { status: "in_progress" });
+      await api.reopenJobCard(id);
       setNotice("Job card reopened (In Progress). You can add or update items now.");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reopen job card");
     } finally {
       setReopening(false);
+    }
+  }
+
+  async function handleCancelJobCard(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    setCancelling(true);
+    setError("");
+    try {
+      await api.cancelJobCard(id, cancelReason.trim() || undefined);
+      setShowCancelModal(false);
+      setCancelReason("");
+      setNotice("Job card has been marked as cancelled.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel job card");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  async function handleDeleteJobCard() {
+    setDeleting(true);
+    setError("");
+    try {
+      await api.deleteJobCard(id);
+      navigate("/job-cards", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete job card");
+      setShowDeleteModal(false);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -462,13 +505,20 @@ export default function JobCardDetailPage() {
     });
   }
 
+  const isAdmin = userRoles.some((r) => ["org_owner", "admin", "super_admin"].includes(r));
   const canRaiseInvoice = Boolean(
     detail && detail.jobCard.status !== "cancelled" && !detail.invoice
   );
   const canReopen = Boolean(
-    detail && detail.jobCard.status === "completed" && !detail.invoice
+    detail && (detail.jobCard.status === "completed" || detail.jobCard.status === "cancelled") && (!detail.invoice || detail.invoice.status === "draft")
   );
-  const busy = saving || completing || invoicing || reopening;
+  const canCancel = Boolean(
+    detail && detail.jobCard.status !== "cancelled" && (!detail.invoice || detail.invoice.status === "draft")
+  );
+  const canDelete = Boolean(
+    isAdmin && detail && (!detail.invoice || detail.invoice.status === "draft" || detail.invoice.status === "cancelled")
+  );
+  const busy = saving || completing || invoicing || reopening || cancelling || deleting;
 
   // Live preview totals while editing discount/tax
   const previewDiscountPaise = isEditable
@@ -543,6 +593,17 @@ export default function JobCardDetailPage() {
                     </button>
                   </>
                 )}
+                {canReopen && isAdmin && (
+                  <button
+                    type="button"
+                    onClick={reopenJobCard}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {reopening ? "Reopening..." : "Re-open to In-Progress"}
+                  </button>
+                )}
                 {canRaiseInvoice && (
                   <button
                     type="button"
@@ -552,6 +613,29 @@ export default function JobCardDetailPage() {
                   >
                     <Receipt className="h-3.5 w-3.5" />
                     {invoicing ? "Raising..." : "Raise Invoice"}
+                  </button>
+                )}
+                {canCancel && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelModal(true)}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/60 px-3 py-2 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Cancel Job
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 shadow-sm hover:bg-rose-50 hover:border-rose-200 disabled:opacity-50 transition-colors"
+                    title="Permanently delete job card (Admin only)"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
                   </button>
                 )}
                 {detail.invoice && (
@@ -1460,6 +1544,107 @@ export default function JobCardDetailPage() {
                       </button>
                     </div>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {/* Cancel Job Card Modal */}
+            {showCancelModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-900/50 p-4 backdrop-blur-xs">
+                <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scaleUp">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-lg bg-rose-50 p-2 text-rose-600">
+                        <XCircle size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-[15px] font-bold text-charcoal-900">Cancel Job Card</h4>
+                        <p className="text-xs text-slate-400">Mark this job card as cancelled</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelModal(false)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-charcoal-900"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCancelJobCard} className="mt-4 space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Cancellation Reason (optional)</label>
+                      <textarea
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="e.g. Customer declined repair estimate / parts unavailable"
+                        rows={3}
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-charcoal-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+                      Cancelling will mark the job card as cancelled. Admins can re-open it later if needed.
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowCancelModal(false)}
+                        className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        Keep Active
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={cancelling}
+                        className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                      >
+                        {cancelling ? "Cancelling..." : "Confirm Cancellation"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Admin Delete Confirmation Modal */}
+            {showDeleteModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-900/50 p-4 backdrop-blur-xs">
+                <div className="w-full max-w-md rounded-2xl border border-rose-100 bg-white p-6 shadow-2xl animate-scaleUp">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-rose-100 p-2.5 text-rose-600">
+                      <Trash2 size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-[15px] font-bold text-charcoal-900">Delete Job Card Permanently?</h4>
+                      <p className="text-xs text-slate-400">Admin-only operation</p>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-xs text-slate-600 leading-relaxed">
+                    Are you sure you want to permanently delete this Job Card ({detail?.client?.name ?? "Customer"} - {detail?.vehicle?.plateNumber ?? ""})?
+                    All linked items, lathe works, and mechanics will be deleted. <strong>This action cannot be undone.</strong>
+                  </p>
+
+                  <div className="mt-6 flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteModal(false)}
+                      disabled={deleting}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteJobCard}
+                      disabled={deleting}
+                      className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 shadow-sm"
+                    >
+                      {deleting ? "Deleting..." : "Permanently Delete"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

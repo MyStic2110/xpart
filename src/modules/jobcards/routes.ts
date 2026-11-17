@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requireAuth } from "@/middleware/auth";
+import { requireAuth, requireRole } from "@/middleware/auth";
 import { normalizePhone } from "@/modules/clients/service";
 import {
   createJobCard,
@@ -9,6 +9,9 @@ import {
   removeJobCardItem,
   updateJobCard,
   markJobCardComplete,
+  cancelJobCard,
+  reopenJobCard,
+  deleteJobCard,
   recordJobCardAdvance,
   listJobCardJobWorks,
   createJobCardJobWork,
@@ -274,6 +277,47 @@ export async function jobCardRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     try {
       const result = await markJobCardComplete(auth.orgId, id);
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  const cancelJobCardSchema = z.object({
+    reason: z.string().trim().optional(),
+  });
+
+  app.post("/job-cards/:id/cancel", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    const parsed = cancelJobCardSchema.safeParse(req.body ?? {});
+    try {
+      const result = await cancelJobCard(auth, id, parsed.success ? parsed.data.reason : undefined);
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.post("/job-cards/:id/reopen", { preHandler: [requireAuth, requireRole("org_owner", "admin", "super_admin")] }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    try {
+      const result = await reopenJobCard(auth, id);
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.delete("/job-cards/:id", { preHandler: [requireAuth, requireRole("org_owner", "admin", "super_admin")] }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    try {
+      const result = await deleteJobCard(auth, id);
       return reply.send(result);
     } catch (err) {
       if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });

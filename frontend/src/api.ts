@@ -1418,6 +1418,12 @@ export const api = {
     request<{ jobCard: unknown; invoice: { id: string }; alreadyExisted: boolean }>(`/job-cards/${id}/complete`, { method: "POST" }),
   markJobCardComplete: (id: string) =>
     request<{ jobCard: JobCardDetail["jobCard"]; alreadyCompleted: boolean }>(`/job-cards/${id}/mark-complete`, { method: "POST" }),
+  cancelJobCard: (id: string, reason?: string) =>
+    request<{ jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+  reopenJobCard: (id: string) =>
+    request<{ jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}/reopen`, { method: "POST" }),
+  deleteJobCard: (id: string) =>
+    request<{ ok: true; id: string }>(`/job-cards/${id}`, { method: "DELETE" }),
   raiseJobCardInvoice: (id: string) =>
     request<{ jobCard: unknown; invoice: { id: string }; alreadyExisted: boolean }>(`/job-cards/${id}/invoice`, { method: "POST" }),
   listInvoices: (branchId?: string) => request<InvoiceListItem[]>(`/invoices${branchId ? `?branchId=${branchId}` : ""}`),
