@@ -2,7 +2,20 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth } from "@/middleware/auth";
 import { normalizePhone } from "@/modules/clients/service";
-import { createJobCard, listJobCards, addJobCardItems, removeJobCardItem, updateJobCard, markJobCardComplete, JobCardError } from "./service";
+import {
+  createJobCard,
+  listJobCards,
+  addJobCardItems,
+  removeJobCardItem,
+  updateJobCard,
+  markJobCardComplete,
+  recordJobCardAdvance,
+  listJobCardJobWorks,
+  createJobCardJobWork,
+  updateJobCardJobWork,
+  deleteJobCardJobWork,
+  JobCardError,
+} from "./service";
 import { getJobCardDetail, JobCardDetailError } from "./detail-service";
 
 const clientSchema = z.object({
@@ -45,6 +58,8 @@ const createJobCardSchema = z.object({
   images: z.array(z.string()).optional(),
   appliedOfferId: z.string().uuid().optional().or(z.literal("")),
   enquiryId: z.string().uuid().optional().or(z.literal("")),
+  remarks: z.string().optional().or(z.literal("")),
+  advanceAmount: z.coerce.number().int().nonnegative().optional(),
 });
 
 export async function jobCardRoutes(app: FastifyInstance) {
@@ -135,6 +150,8 @@ export async function jobCardRoutes(app: FastifyInstance) {
     discount: z.coerce.number().int().nonnegative().optional(),
     taxPercent: z.coerce.number().int().min(0).max(100).optional(),
     status: z.enum(["draft", "in_progress"]).optional(),
+    remarks: z.string().optional().or(z.literal("")),
+    advanceAmount: z.coerce.number().int().nonnegative().optional(),
   });
 
   app.patch("/job-cards/:id", { preHandler: requireAuth }, async (req, reply) => {
@@ -145,6 +162,106 @@ export async function jobCardRoutes(app: FastifyInstance) {
 
     try {
       const result = await updateJobCard(auth, id, parsed.data);
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  const advanceSchema = z.object({
+    amount: z.coerce.number().int().positive(),
+    mode: z.string().optional(),
+    notes: z.string().optional(),
+  });
+
+  app.post("/job-cards/:id/advance", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    const parsed = advanceSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+
+    try {
+      const result = await recordJobCardAdvance(auth, id, parsed.data);
+      return reply.code(201).send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.get("/job-cards/:id/job-works", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    const list = await listJobCardJobWorks(auth.orgId, id);
+    return reply.send(list);
+  });
+
+  const jobWorkSchema = z.object({
+    vendorId: z.string().uuid().optional().or(z.literal("")),
+    vendorName: z.string().trim().min(1),
+    workDescription: z.string().trim().min(1),
+    vendorCost: z.coerce.number().int().nonnegative().default(0),
+    status: z.enum(["sent", "in_progress", "completed", "returned"]).default("sent"),
+    vendorRef: z.string().optional().or(z.literal("")),
+    notes: z.string().optional().or(z.literal("")),
+  });
+
+  app.post("/job-cards/:id/job-works", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    const parsed = jobWorkSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+
+    try {
+      const result = await createJobCardJobWork(auth, id, {
+        ...parsed.data,
+        vendorId: parsed.data.vendorId || undefined,
+        vendorRef: parsed.data.vendorRef || undefined,
+        notes: parsed.data.notes || undefined,
+      });
+      return reply.code(201).send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  const patchJobWorkSchema = z.object({
+    vendorId: z.string().uuid().optional().or(z.literal("")),
+    vendorName: z.string().trim().min(1).optional(),
+    workDescription: z.string().trim().min(1).optional(),
+    vendorCost: z.coerce.number().int().nonnegative().optional(),
+    status: z.enum(["sent", "in_progress", "completed", "returned"]).optional(),
+    vendorRef: z.string().optional().or(z.literal("")),
+    notes: z.string().optional().or(z.literal("")),
+  });
+
+  app.patch("/job-cards/:id/job-works/:workId", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id, workId } = req.params as { id: string; workId: string };
+    const parsed = patchJobWorkSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+
+    try {
+      const result = await updateJobCardJobWork(auth, id, workId, {
+        ...parsed.data,
+        vendorId: parsed.data.vendorId === "" ? undefined : parsed.data.vendorId,
+        vendorRef: parsed.data.vendorRef === "" ? undefined : parsed.data.vendorRef,
+        notes: parsed.data.notes === "" ? undefined : parsed.data.notes,
+      });
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.delete("/job-cards/:id/job-works/:workId", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id, workId } = req.params as { id: string; workId: string };
+    try {
+      const result = await deleteJobCardJobWork(auth, id, workId);
       return reply.send(result);
     } catch (err) {
       if (err instanceof JobCardError) return reply.code(err.statusCode).send({ error: err.message });

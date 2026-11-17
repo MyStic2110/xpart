@@ -26,12 +26,32 @@ export default function InvoiceDetailPage() {
   const [paying, setPaying] = useState(false);
   const [redeemPts, setRedeemPts] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const [remarks, setRemarks] = useState("");
+  const [editingRemarks, setEditingRemarks] = useState(false);
+  const [savingRemarks, setSavingRemarks] = useState(false);
 
   function load() {
     api.getInvoiceDetail(id).then((d) => {
       setDetail(d);
       setAmount((d.balanceDue / 100).toFixed(2));
+      setRemarks(d.invoice.remarks || "");
     }).catch((err) => setError(err.message));
+  }
+
+  async function handleSaveRemarks() {
+    setSavingRemarks(true);
+    setError("");
+    try {
+      await api.updateInvoiceRemarks(id, remarks);
+      setEditingRemarks(false);
+      setNotice("Invoice remarks saved.");
+      setTimeout(() => setNotice(""), 3000);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "could not save remarks");
+    } finally {
+      setSavingRemarks(false);
+    }
   }
 
   useEffect(() => {
@@ -176,6 +196,53 @@ export default function InvoiceDetailPage() {
                   <div className="flex gap-8"><span className="text-slate-400">Paid so far</span><span className="font-medium text-emerald-600 w-24 text-right">{rupees(detail.paidSoFar)}</span></div>
                   <div className="flex gap-8 text-[15px]"><span className="font-semibold text-charcoal-900">Balance due</span><span className="font-semibold text-charcoal-900 w-24 text-right">{rupees(detail.balanceDue)}</span></div>
                 </div>
+              </div>
+
+              {/* Invoice Remarks / Notes Card */}
+              <div className="mt-6 rounded-xl2 border border-slate-100 bg-white p-5 shadow-card">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[14px] font-semibold text-charcoal-900">Invoice Note / Remarks</h3>
+                  {!editingRemarks ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditingRemarks(true)}
+                      className="text-xs font-semibold text-accent-600 hover:text-accent-500"
+                    >
+                      {detail.invoice.remarks ? "Edit" : "+ Add Note"}
+                    </button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setEditingRemarks(false); setRemarks(detail.invoice.remarks || ""); }}
+                        className="text-xs text-slate-400 hover:text-slate-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveRemarks}
+                        disabled={savingRemarks}
+                        className="text-xs font-semibold text-accent-600 hover:text-accent-500 disabled:opacity-50"
+                      >
+                        {savingRemarks ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {editingRemarks ? (
+                  <textarea
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder="Enter notes for this invoice (printed on PDF)..."
+                    rows={2}
+                    className="w-full rounded-xl border border-slate-200 p-2.5 text-[13px] focus:border-charcoal-900 focus:outline-none"
+                  />
+                ) : (
+                  <p className="text-[13px] text-slate-600">
+                    {detail.invoice.remarks || <span className="text-slate-400 italic">No note entered.</span>}
+                  </p>
+                )}
               </div>
 
               {detail.payments.length > 0 && (

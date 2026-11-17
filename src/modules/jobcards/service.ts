@@ -1,6 +1,20 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { vehicles, jobCards, jobCardServices, jobCardProducts, branches, services, users, clients, invoices, enquiries } from "@/db/schema";
+import {
+  vehicles,
+  jobCards,
+  jobCardServices,
+  jobCardProducts,
+  jobCardJobWorks,
+  branches,
+  services,
+  users,
+  clients,
+  invoices,
+  enquiries,
+  wallets,
+  walletTransactions,
+} from "@/db/schema";
 import { findOrCreateClient } from "@/modules/clients/service";
 import { sendReferralInvite } from "@/modules/connectors/whatsapp";
 import type { AuthContext } from "@/middleware/auth";
@@ -59,6 +73,8 @@ export interface CreateJobCardInput {
   images?: string[];
   appliedOfferId?: string;
   enquiryId?: string;
+  remarks?: string;
+  advanceAmount?: number; // paise
 }
 
 async function findOrCreateVehicle(orgId: string, clientId: string, input: VehicleInput) {
@@ -129,6 +145,8 @@ export async function createJobCard(auth: AuthContext, input: CreateJobCardInput
         jobDate: input.jobDate,
         serviceAdvisorId: input.serviceAdvisorId || null,
         images: input.images && input.images.length > 0 ? input.images : null,
+        remarks: input.remarks || null,
+        advanceAmount: input.advanceAmount ?? 0,
         subtotal,
         discount: input.discount,
         taxPercent: input.taxPercent,
@@ -136,6 +154,28 @@ export async function createJobCard(auth: AuthContext, input: CreateJobCardInput
         status: "in_progress",
       })
       .returning();
+
+    if (input.advanceAmount && input.advanceAmount > 0) {
+      let wallet = await tx.query.wallets.findFirst({
+        where: and(eq(wallets.clientId, client.id), eq(wallets.orgId, auth.orgId)),
+      });
+      if (!wallet) {
+        [wallet] = await tx
+          .insert(wallets)
+          .values({ clientId: client.id, orgId: auth.orgId, balance: 0 })
+          .returning();
+      }
+      const newBalance = wallet.balance + input.advanceAmount;
+      await tx.update(wallets).set({ balance: newBalance }).where(eq(wallets.id, wallet.id));
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        type: "credit",
+        source: "topup",
+        amount: input.advanceAmount,
+        refId: jobCard.id,
+        balanceAfter: newBalance,
+      });
+    }
 
     if (input.enquiryId) {
       await tx
@@ -334,7 +374,13 @@ export async function removeJobCardItem(
 export async function updateJobCard(
   auth: AuthContext,
   jobCardId: string,
-  input: { discount?: number; taxPercent?: number; status?: "draft" | "in_progress" }
+  input: {
+    discount?: number;
+    taxPercent?: number;
+    status?: "draft" | "in_progress";
+    remarks?: string;
+    advanceAmount?: number;
+  }
 ) {
   const jc = await db.query.jobCards.findFirst({
     where: and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)),
@@ -356,6 +402,8 @@ export async function updateJobCard(
     const patch: Record<string, unknown> = {};
     if (input.discount !== undefined) patch.discount = input.discount;
     if (input.taxPercent !== undefined) patch.taxPercent = input.taxPercent;
+    if (input.remarks !== undefined) patch.remarks = input.remarks;
+    if (input.advanceAmount !== undefined) patch.advanceAmount = input.advanceAmount;
     if (input.status !== undefined) {
       patch.status = input.status;
       if (isReopen) patch.completedAt = null;
@@ -367,6 +415,151 @@ export async function updateJobCard(
     const updatedJobCard = await recalculateJobCardTotals(tx, jobCardId);
     return { jobCard: updatedJobCard };
   });
+}
+
+export async function recordJobCardAdvance(
+  auth: AuthContext,
+  jobCardId: string,
+  input: { amount: number; mode?: string; notes?: string }
+) {
+  if (input.amount <= 0) throw new JobCardError("advance amount must be greater than zero", 400);
+
+  const jc = await db.query.jobCards.findFirst({
+    where: and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)),
+  });
+  if (!jc) throw new JobCardError("job card not found", 404);
+
+  return await db.transaction(async (tx) => {
+    const newAdvance = jc.advanceAmount + input.amount;
+    const [updatedJobCard] = await tx
+      .update(jobCards)
+      .set({ advanceAmount: newAdvance })
+      .where(eq(jobCards.id, jobCardId))
+      .returning();
+
+    // Topup client's wallet with the advance amount
+    let wallet = await tx.query.wallets.findFirst({
+      where: and(eq(wallets.clientId, jc.clientId), eq(wallets.orgId, auth.orgId)),
+    });
+    if (!wallet) {
+      [wallet] = await tx
+        .insert(wallets)
+        .values({
+          clientId: jc.clientId,
+          orgId: auth.orgId,
+          balance: 0,
+        })
+        .returning();
+    }
+
+    const newBalance = wallet.balance + input.amount;
+    await tx.update(wallets).set({ balance: newBalance }).where(eq(wallets.id, wallet.id));
+
+    await tx.insert(walletTransactions).values({
+      walletId: wallet.id,
+      type: "credit",
+      source: "topup",
+      amount: input.amount,
+      refId: jobCardId,
+      balanceAfter: newBalance,
+    });
+
+    return { jobCard: updatedJobCard, wallet: { ...wallet, balance: newBalance } };
+  });
+}
+
+export async function listJobCardJobWorks(orgId: string, jobCardId: string) {
+  return await db.query.jobCardJobWorks.findMany({
+    where: and(eq(jobCardJobWorks.jobCardId, jobCardId), eq(jobCardJobWorks.orgId, orgId)),
+    orderBy: [desc(jobCardJobWorks.createdAt)],
+  });
+}
+
+export async function createJobCardJobWork(
+  auth: AuthContext,
+  jobCardId: string,
+  input: {
+    vendorId?: string;
+    vendorName: string;
+    workDescription: string;
+    vendorCost: number;
+    status?: string;
+    vendorRef?: string;
+    notes?: string;
+  }
+) {
+  const jc = await db.query.jobCards.findFirst({
+    where: and(eq(jobCards.id, jobCardId), eq(jobCards.orgId, auth.orgId)),
+  });
+  if (!jc) throw new JobCardError("job card not found", 404);
+
+  const [row] = await db
+    .insert(jobCardJobWorks)
+    .values({
+      orgId: auth.orgId,
+      branchId: jc.branchId,
+      jobCardId,
+      vendorId: input.vendorId || null,
+      vendorName: input.vendorName,
+      workDescription: input.workDescription,
+      vendorCost: input.vendorCost ?? 0,
+      status: input.status ?? "sent",
+      vendorRef: input.vendorRef || null,
+      notes: input.notes || null,
+    })
+    .returning();
+
+  return row;
+}
+
+export async function updateJobCardJobWork(
+  auth: AuthContext,
+  jobCardId: string,
+  workId: string,
+  input: {
+    vendorId?: string;
+    vendorName?: string;
+    workDescription?: string;
+    vendorCost?: number;
+    status?: string;
+    vendorRef?: string;
+    notes?: string;
+  }
+) {
+  const existing = await db.query.jobCardJobWorks.findFirst({
+    where: and(eq(jobCardJobWorks.id, workId), eq(jobCardJobWorks.jobCardId, jobCardId), eq(jobCardJobWorks.orgId, auth.orgId)),
+  });
+  if (!existing) throw new JobCardError("job work entry not found", 404);
+
+  const patch: Record<string, unknown> = {};
+  if (input.vendorId !== undefined) patch.vendorId = input.vendorId || null;
+  if (input.vendorName !== undefined) patch.vendorName = input.vendorName;
+  if (input.workDescription !== undefined) patch.workDescription = input.workDescription;
+  if (input.vendorCost !== undefined) patch.vendorCost = input.vendorCost;
+  if (input.status !== undefined) patch.status = input.status;
+  if (input.vendorRef !== undefined) patch.vendorRef = input.vendorRef || null;
+  if (input.notes !== undefined) patch.notes = input.notes || null;
+
+  const [updated] = await db
+    .update(jobCardJobWorks)
+    .set(patch)
+    .where(and(eq(jobCardJobWorks.id, workId), eq(jobCardJobWorks.orgId, auth.orgId)))
+    .returning();
+
+  return updated;
+}
+
+export async function deleteJobCardJobWork(auth: AuthContext, jobCardId: string, workId: string) {
+  const existing = await db.query.jobCardJobWorks.findFirst({
+    where: and(eq(jobCardJobWorks.id, workId), eq(jobCardJobWorks.jobCardId, jobCardId), eq(jobCardJobWorks.orgId, auth.orgId)),
+  });
+  if (!existing) throw new JobCardError("job work entry not found", 404);
+
+  await db
+    .delete(jobCardJobWorks)
+    .where(and(eq(jobCardJobWorks.id, workId), eq(jobCardJobWorks.orgId, auth.orgId)));
+
+  return { success: true };
 }
 
 export async function markJobCardComplete(orgId: string, jobCardId: string) {

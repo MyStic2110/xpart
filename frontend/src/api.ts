@@ -355,6 +355,8 @@ export interface CreateJobCardInput {
   images?: string[];
   appliedOfferId?: string;
   enquiryId?: string;
+  remarks?: string;
+  advanceAmount?: number;
 }
 
 export interface Offer {
@@ -786,11 +788,14 @@ export interface InvoiceListItem {
   invoiceNo: string | null;
   total: number;
   status: "draft" | "paid" | "partial" | "cancelled";
+  remarks: string | null;
   createdAt: string;
   finalizedAt: string | null;
   clientName: string;
   clientPhone: string;
   plateNumber: string;
+  paidAmount: number;
+  balanceDue: number;
 }
 
 export interface Payment {
@@ -813,6 +818,7 @@ export interface InvoiceDetail {
     finalizedAt: string | null;
     appliedOfferCode?: string | null;
     appliedOfferTitle?: string | null;
+    remarks: string | null;
   };
   client: ClientRecord | null;
   vehicle: { plateNumber: string } | null;
@@ -851,6 +857,21 @@ export interface JobCardListItem {
   hasInvoice: string | null;
 }
 
+export interface JobCardJobWork {
+  id: string;
+  orgId: string;
+  branchId: string;
+  jobCardId: string;
+  vendorId: string | null;
+  vendorName: string;
+  workDescription: string;
+  vendorCost: number; // paise
+  status: "sent" | "in_progress" | "completed" | "returned";
+  vendorRef: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface JobCardDetail {
   jobCard: {
     id: string;
@@ -861,6 +882,8 @@ export interface JobCardDetail {
     taxPercent: number;
     total: number;
     images: string[] | null;
+    remarks: string | null;
+    advanceAmount: number;
     completedAt: string | null;
   };
   client: ClientRecord | null;
@@ -875,6 +898,7 @@ export interface JobCardDetail {
     odometerReading: number | null;
   } | null;
   lineItems: { id: string; serviceName: string; qty: number; price: number; type?: "service" | "product" }[];
+  jobWorks?: JobCardJobWork[];
   serviceAdvisorName: string | null;
   invoice: { id: string; status: string; total: number; finalizedAt: string | null } | null;
 }
@@ -1344,8 +1368,52 @@ export const api = {
   ) => request<{ jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}/items`, { method: "POST", body: JSON.stringify(input) }),
   removeJobCardItem: (id: string, itemId: string, type: "service" | "product") =>
     request<{ success: true; jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}/items/${itemId}?type=${type}`, { method: "DELETE" }),
-  updateJobCard: (id: string, input: { discount?: number; taxPercent?: number; status?: "draft" | "in_progress" }) =>
+  updateJobCard: (
+    id: string,
+    input: {
+      discount?: number;
+      taxPercent?: number;
+      status?: "draft" | "in_progress";
+      remarks?: string;
+      advanceAmount?: number;
+    }
+  ) =>
     request<{ jobCard: JobCardDetail["jobCard"] }>(`/job-cards/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  recordJobCardAdvance: (id: string, input: { amount: number; mode?: string; notes?: string }) =>
+    request<{ jobCard: JobCardDetail["jobCard"]; wallet: { id: string; balance: number } }>(`/job-cards/${id}/advance`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  listJobCardJobWorks: (id: string) => request<JobCardJobWork[]>(`/job-cards/${id}/job-works`),
+  addJobCardJobWork: (
+    id: string,
+    input: {
+      vendorId?: string;
+      vendorName: string;
+      workDescription: string;
+      vendorCost: number;
+      status?: "sent" | "in_progress" | "completed" | "returned";
+      vendorRef?: string;
+      notes?: string;
+    }
+  ) => request<JobCardJobWork>(`/job-cards/${id}/job-works`, { method: "POST", body: JSON.stringify(input) }),
+  updateJobCardJobWork: (
+    id: string,
+    workId: string,
+    input: Partial<{
+      vendorId?: string;
+      vendorName: string;
+      workDescription: string;
+      vendorCost: number;
+      status: "sent" | "in_progress" | "completed" | "returned";
+      vendorRef: string;
+      notes: string;
+    }>
+  ) => request<JobCardJobWork>(`/job-cards/${id}/job-works/${workId}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteJobCardJobWork: (id: string, workId: string) =>
+    request<{ success: true }>(`/job-cards/${id}/job-works/${workId}`, { method: "DELETE" }),
+  updateInvoiceRemarks: (id: string, remarks: string) =>
+    request<{ id: string; remarks: string | null }>(`/invoices/${id}`, { method: "PATCH", body: JSON.stringify({ remarks }) }),
   completeJobCard: (id: string) =>
     request<{ jobCard: unknown; invoice: { id: string }; alreadyExisted: boolean }>(`/job-cards/${id}/complete`, { method: "POST" }),
   markJobCardComplete: (id: string) =>

@@ -18,6 +18,9 @@ import Dropdown from "../components/Dropdown";
 import Skeleton from "../components/Skeleton";
 import FloatingInput from "../components/FloatingInput";
 import MultiFileInput from "../components/MultiFileInput";
+import SearchCombobox from "../components/ui/SearchCombobox";
+import AddVehicleMakeModal from "../components/AddVehicleMakeModal";
+import AddVehicleModelModal from "../components/AddVehicleModelModal";
 import { uid } from "../utils/id";
 
 function rupees(paise?: number) {
@@ -88,6 +91,10 @@ export default function CreateJobCard() {
   const [discount, setDiscount] = useState(0);
   const [taxPercent, setTaxPercent] = useState(0);
   const [serviceAdvisorId, setServiceAdvisorId] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [showAddMakeModal, setShowAddMakeModal] = useState(false);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
 
   const [loadingReference, setLoadingReference] = useState(true);
   const [client360, setClient360] = useState<Client360 | null>(null);
@@ -266,6 +273,8 @@ export default function CreateJobCard() {
         images,
         appliedOfferId: appliedOfferId || undefined,
         enquiryId: conversionData?.enquiryId || undefined,
+        remarks: remarks.trim() || undefined,
+        advanceAmount: advanceAmount > 0 ? Math.round(advanceAmount * 100) : undefined,
       });
       navigate(`/job-cards/${result.jobCard.id}`);
     } catch (err) {
@@ -465,7 +474,16 @@ export default function CreateJobCard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FloatingInput label="Vehicle number *" value={plateNumber} onChange={(e) => setPlateNumber(e.target.value.toUpperCase())} required helperText="XXXX-XX-XXXX" />
                   <div>
-                    <label className="text-[13px] font-medium text-slate-500">Vehicle Make *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[13px] font-medium text-slate-500">Vehicle Make *</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddMakeModal(true)}
+                        className="text-xs text-sky-600 hover:text-sky-700 font-medium flex items-center gap-0.5"
+                      >
+                        <Plus className="h-3 w-3" /> Add Make
+                      </button>
+                    </div>
                     <Dropdown
                       value={makeId}
                       onChange={(v) => { setMakeId(v); setModelId(""); setSegment(""); }}
@@ -475,12 +493,21 @@ export default function CreateJobCard() {
                     />
                   </div>
                   <div>
-                    <label className="text-[13px] font-medium text-slate-500">Vehicle Model *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[13px] font-medium text-slate-500">Vehicle Model *</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddModelModal(true)}
+                        className="text-xs text-sky-600 hover:text-sky-700 font-medium flex items-center gap-0.5"
+                      >
+                        <Plus className="h-3 w-3" /> Add Model
+                      </button>
+                    </div>
                     <Dropdown
                       value={modelId}
                       onChange={onModelChange}
                       disabled={!makeId}
-                      placeholder="Select model"
+                      placeholder={makeId ? "Select model" : "Select make first"}
                       className="mt-1.5 w-full"
                       options={modelsForMake.map((m) => ({ value: m.id, label: m.name }))}
                     />
@@ -513,27 +540,36 @@ export default function CreateJobCard() {
                 <div className="space-y-2">
                   {lineItems.map((li) => (
                     <div key={li.key} className="flex items-center gap-2 animate-fadeIn">
-                      <Dropdown
+                      <SearchCombobox
                         value={li.serviceId}
                         onChange={(v) => onServiceSelect(li.key, v)}
-                        placeholder="Select service..."
+                        placeholder="Search labour / service..."
+                        searchPlaceholder="Type service name or category..."
                         className="flex-1"
                         size="sm"
-                        options={services.filter((s) => s.name.trim().length > 0).map((s) => ({ value: s.id, label: s.name }))}
+                        options={services
+                          .filter((s) => s.name.trim().length > 0)
+                          .map((s) => ({
+                            value: s.id,
+                            label: s.name,
+                            sub: s.recurrenceDays ? `${s.recurrenceDays}d recurrence` : undefined,
+                            price: s.defaultPrice / 100,
+                          }))}
+                        formatPrice={(p) => `₹${p.toLocaleString("en-IN")}`}
                       />
                       <input
                         type="number"
                         min={1}
                         value={li.qty}
                         onChange={(e) => updateLineItem(li.key, { qty: Number(e.target.value) })}
-                        className="w-20 rounded-lg border border-slate-200 px-3 py-2.5 text-[13.5px] focus:border-accent-500 focus:outline-none"
+                        className="w-20 rounded-lg border border-slate-200 px-3 py-2 text-[13.5px] focus:border-accent-500 focus:outline-none"
                       />
                       <input
                         type="number"
                         step="0.01"
                         value={li.price}
                         onChange={(e) => updateLineItem(li.key, { price: Number(e.target.value) })}
-                        className="w-28 rounded-lg border border-slate-200 px-3 py-2.5 text-[13.5px] focus:border-accent-500 focus:outline-none"
+                        className="w-28 rounded-lg border border-slate-200 px-3 py-2 text-[13.5px] focus:border-accent-500 focus:outline-none"
                       />
                       <button type="button" onClick={() => removeLineItem(li.key)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600">
                         <Trash2 size={15} />
@@ -549,21 +585,27 @@ export default function CreateJobCard() {
                 <div className="space-y-2">
                   {productItems.map((pi) => (
                     <div key={pi.key} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 bg-slate-50/50 rounded-xl animate-fadeIn">
-                      <select
+                      <SearchCombobox
                         value={pi.productId || ""}
-                        onChange={(e) => onProductSelect(pi.key, e.target.value)}
-                        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] outline-none"
-                      >
-                        <option value="">-- Choose Catalogue Part --</option>
-                        {productsList.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => onProductSelect(pi.key, v)}
+                        placeholder="Search catalogue part / SKU..."
+                        searchPlaceholder="Type part name or SKU..."
+                        className="flex-1"
+                        size="sm"
+                        allowClear
+                        options={productsList.map((p) => ({
+                          value: p.id,
+                          label: p.name,
+                          sub: p.sku ? `SKU: ${p.sku}` : undefined,
+                          price: p.mrp / 100,
+                        }))}
+                        formatPrice={(p) => `₹${p.toLocaleString("en-IN")}`}
+                      />
                       <input
                         placeholder="Or custom part name"
                         value={pi.productName}
                         onChange={(e) => updateProductItem(pi.key, { productName: e.target.value })}
-                        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px]"
+                        className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px]"
                         required
                       />
                       <div className="flex gap-2 shrink-0">
@@ -635,6 +677,34 @@ export default function CreateJobCard() {
                     options={staff.map((s) => ({ value: s.userId, label: s.name }))}
                   />
                 </div>
+
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-5">
+                  <div>
+                    <label className="text-[13px] font-medium text-slate-600">Job Card Remarks / Note</label>
+                    <textarea
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Enter customer requests, dent/scratch marks, or special instructions..."
+                      rows={3}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] focus:border-charcoal-900 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[13px] font-medium text-slate-600">Parts / Labour Advance Received (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="1"
+                      value={advanceAmount || ""}
+                      onChange={(e) => setAdvanceAmount(Math.max(0, Number(e.target.value)))}
+                      placeholder="0"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] focus:border-charcoal-900 focus:outline-none"
+                    />
+                    <p className="mt-1.5 text-[11px] text-slate-400">
+                      Advance amount collected upfront for parts or job work. Credited to customer account and deducted from final bill.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <button type="submit" disabled={saving} className="rounded-xl bg-charcoal-900 px-6 py-3 text-[14px] font-medium text-white hover:bg-charcoal-800 disabled:opacity-50">
@@ -643,6 +713,29 @@ export default function CreateJobCard() {
           </form>
           </>
           )}
+
+          <AddVehicleMakeModal
+            open={showAddMakeModal}
+            onClose={() => setShowAddMakeModal(false)}
+            onCreated={(newMake) => {
+              setMakes((prev) => [...prev, newMake].sort((a, b) => a.name.localeCompare(b.name)));
+              setMakeId(newMake.id);
+              setModelId("");
+              setSegment("");
+            }}
+          />
+          <AddVehicleModelModal
+            open={showAddModelModal}
+            onClose={() => setShowAddModelModal(false)}
+            makes={makes}
+            defaultMakeId={makeId}
+            onCreated={(newModel) => {
+              setModels((prev) => [...prev, newModel].sort((a, b) => a.name.localeCompare(b.name)));
+              setMakeId(newModel.makeId);
+              setModelId(newModel.id);
+              setSegment(newModel.segment || "Medium");
+            }}
+          />
         </div>
       </main>
     </div>

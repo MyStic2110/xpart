@@ -5,6 +5,7 @@ import {
   completeJobCardAndGenerateInvoice,
   listInvoices,
   getInvoiceDetail,
+  updateInvoiceRemarks,
   recordPayment,
   redeemPoints,
   InvoiceError,
@@ -59,6 +60,25 @@ export async function invoiceRoutes(app: FastifyInstance) {
     try {
       const detail = await getInvoiceDetail(auth.orgId, id);
       return reply.send(detail);
+    } catch (err) {
+      if (err instanceof InvoiceError) return reply.code(err.statusCode).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  const patchInvoiceSchema = z.object({
+    remarks: z.string().optional().or(z.literal("")),
+  });
+
+  app.patch("/invoices/:id", { preHandler: requireAuth }, async (req, reply) => {
+    const auth = req.auth!;
+    const { id } = req.params as { id: string };
+    const parsed = patchInvoiceSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+
+    try {
+      const result = await updateInvoiceRemarks(auth.orgId, id, parsed.data.remarks || null);
+      return reply.send(result);
     } catch (err) {
       if (err instanceof InvoiceError) return reply.code(err.statusCode).send({ error: err.message });
       throw err;

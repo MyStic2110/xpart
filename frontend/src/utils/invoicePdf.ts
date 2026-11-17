@@ -38,6 +38,8 @@ interface PdfDocumentConfig {
   total: number;
   paidSoFar?: number;
   balanceDue?: number;
+  advancePaid?: number;
+  remarks?: string | null;
   footerNote: string;
   fileName: string;
 }
@@ -228,6 +230,25 @@ function renderPdfDocument(cfg: PdfDocumentConfig) {
     doc.text(formatMoney(cfg.paidSoFar), sumValX, y, { align: "right" });
   }
 
+  if (cfg.advancePaid && cfg.advancePaid > 0) {
+    y += 18;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(5, 150, 105);
+    doc.text("Advance Received", sumLabelX, y);
+    doc.text(`- ${formatMoney(cfg.advancePaid)}`, sumValX, y, { align: "right" });
+
+    const netPayable = Math.max(cfg.total - cfg.advancePaid, 0);
+    y += 18;
+    doc.setFillColor(240, 253, 244);
+    doc.rect(sumLabelX - 8, y - 13, pageWidth - margin - (sumLabelX - 8), 22, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(21, 128, 61);
+    doc.text("Net Balance Payable", sumLabelX, y + 2);
+    doc.text(formatMoney(netPayable), sumValX, y + 2, { align: "right" });
+  }
+
   if (cfg.balanceDue && cfg.balanceDue > 0) {
     y += 18;
     doc.setFillColor(254, 242, 242);
@@ -237,6 +258,24 @@ function renderPdfDocument(cfg: PdfDocumentConfig) {
     doc.setTextColor(190, 18, 60);
     doc.text("Balance Due", sumLabelX, y + 2);
     doc.text(formatMoney(cfg.balanceDue), sumValX, y + 2, { align: "right" });
+  }
+
+  if (cfg.remarks && cfg.remarks.trim()) {
+    ensureSpace(48);
+    y += 24;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, y, contentWidth, 34, 4, 4, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text("NOTES / REMARKS:", margin + 8, y + 13);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(51, 65, 85);
+    const splitNotes = doc.splitTextToSize(cfg.remarks.trim(), contentWidth - 16);
+    doc.text(splitNotes, margin + 8, y + 24);
+    y += 34;
   }
 
   // --- Footer ---
@@ -304,6 +343,7 @@ export function downloadInvoicePdf(detail: InvoiceDetail, orgName: string) {
     total: detail.invoice.total,
     paidSoFar: detail.paidSoFar,
     balanceDue: detail.balanceDue,
+    remarks: detail.invoice.remarks,
     footerNote: detail.balanceDue > 0 ? `Please remit ${formatMoney(detail.balanceDue)} toward ${invLabel}.` : "",
     fileName: `Invoice-${safeRef}.pdf`,
   });
@@ -352,6 +392,8 @@ export function downloadJobCardDocumentPdf(
     taxAmount,
     totalLabel: isEstimate ? "Estimated Total" : "Total Payable",
     total,
+    advancePaid: detail.jobCard.advanceAmount,
+    remarks: detail.jobCard.remarks,
     footerNote: isEstimate
       ? "Estimate only. Final charges may change if additional faults or parts are required."
       : `Proforma reference ${docRef}. Final Tax Invoice will be issued upon settlement.`,

@@ -15,13 +15,20 @@ import {
   Download,
   RotateCcw,
   FileText,
+  CreditCard,
+  Layers,
+  Edit3,
+  Clock,
+  Truck,
+  X,
 } from "lucide-react";
-import { api, JobCardDetail, Service, Product } from "../api";
+import { api, JobCardDetail, JobCardJobWork, Service, Product } from "../api";
 import { downloadInvoicePdf, downloadJobCardDocumentPdf } from "../utils/invoicePdf";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/ui/TopBar";
 import Dropdown from "../components/Dropdown";
 import Skeleton from "../components/Skeleton";
+import SearchCombobox from "../components/ui/SearchCombobox";
 import { cn } from "../lib/utils";
 
 function rupees(paise: number) {
@@ -67,6 +74,27 @@ export default function JobCardDetailPage() {
   const [editDiscount, setEditDiscount] = useState(0);
   const [editTaxPercent, setEditTaxPercent] = useState(0);
 
+  // Remarks
+  const [remarks, setRemarks] = useState("");
+  const [savingRemarks, setSavingRemarks] = useState(false);
+
+  // Advance Payment Modal
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  const [advanceAmountInput, setAdvanceAmountInput] = useState("");
+  const [advanceMode, setAdvanceMode] = useState<"cash" | "upi" | "card">("upi");
+  const [advanceNotes, setAdvanceNotes] = useState("");
+  const [submittingAdvance, setSubmittingAdvance] = useState(false);
+
+  // Job Work Modal
+  const [showJobWorkModal, setShowJobWorkModal] = useState(false);
+  const [jwVendorName, setJwVendorName] = useState("");
+  const [jwWorkDescription, setJwWorkDescription] = useState("");
+  const [jwCost, setJwCost] = useState("");
+  const [jwStatus, setJwStatus] = useState<"sent" | "in_progress" | "completed" | "returned">("sent");
+  const [jwVendorRef, setJwVendorRef] = useState("");
+  const [jwNotes, setJwNotes] = useState("");
+  const [submittingJobWork, setSubmittingJobWork] = useState(false);
+
   function load() {
     return api
       .getJobCardDetail(id)
@@ -74,6 +102,7 @@ export default function JobCardDetailPage() {
         setDetail(d);
         setEditDiscount(d.jobCard.discount / 100);
         setEditTaxPercent(d.jobCard.taxPercent);
+        setRemarks(d.jobCard.remarks || "");
       })
       .catch((err) => setError(err.message));
   }
@@ -223,8 +252,111 @@ export default function JobCardDetailPage() {
     await api.updateJobCard(id, {
       discount: safeDiscount,
       taxPercent: safeTaxPercent,
+      remarks: remarks.trim() || undefined,
       status: "in_progress",
     });
+  }
+
+  async function handleSaveRemarks() {
+    setSavingRemarks(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.updateJobCard(id, { remarks: remarks.trim() || undefined });
+      setNotice("Remarks saved.");
+      setTimeout(() => setNotice(""), 3000);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save remarks");
+    } finally {
+      setSavingRemarks(false);
+    }
+  }
+
+  async function handleRecordAdvance(e: React.FormEvent) {
+    e.preventDefault();
+    const amountNum = Number(advanceAmountInput);
+    if (!amountNum || amountNum <= 0) {
+      setError("Please enter a valid advance amount greater than 0.");
+      return;
+    }
+    setSubmittingAdvance(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.recordJobCardAdvance(id, {
+        amount: Math.round(amountNum * 100),
+        mode: advanceMode,
+        notes: advanceNotes.trim() || undefined,
+      });
+      setShowAdvanceModal(false);
+      setAdvanceAmountInput("");
+      setAdvanceNotes("");
+      setNotice(`₹${amountNum.toLocaleString("en-IN")} advance recorded to customer account!`);
+      setTimeout(() => setNotice(""), 4000);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not record advance");
+    } finally {
+      setSubmittingAdvance(false);
+    }
+  }
+
+  async function handleCreateJobWork(e: React.FormEvent) {
+    e.preventDefault();
+    if (!jwVendorName.trim() || !jwWorkDescription.trim()) {
+      setError("Please enter vendor name and work description.");
+      return;
+    }
+    setSubmittingJobWork(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.addJobCardJobWork(id, {
+        vendorName: jwVendorName.trim(),
+        workDescription: jwWorkDescription.trim(),
+        vendorCost: Math.round((Number(jwCost) || 0) * 100),
+        status: jwStatus,
+        vendorRef: jwVendorRef.trim() || undefined,
+        notes: jwNotes.trim() || undefined,
+      });
+      setShowJobWorkModal(false);
+      setJwVendorName("");
+      setJwWorkDescription("");
+      setJwCost("");
+      setJwVendorRef("");
+      setJwNotes("");
+      setNotice("Job work outsourced entry created.");
+      setTimeout(() => setNotice(""), 3000);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add job work");
+    } finally {
+      setSubmittingJobWork(false);
+    }
+  }
+
+  async function handleDeleteJobWork(workId: string) {
+    if (!confirm("Remove this outsourced job work entry?")) return;
+    setError("");
+    setNotice("");
+    try {
+      await api.deleteJobCardJobWork(id, workId);
+      setNotice("Job work removed.");
+      setTimeout(() => setNotice(""), 3000);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete job work");
+    }
+  }
+
+  async function handleUpdateJobWorkStatus(workId: string, newStatus: "sent" | "in_progress" | "completed" | "returned") {
+    try {
+      await api.updateJobCardJobWork(id, workId, { status: newStatus });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update status");
+    }
   }
 
   async function saveChanges() {
@@ -590,16 +722,23 @@ export default function JobCardDetailPage() {
                       </div>
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
                         <div className="flex-1">
-                          <label className="text-[11px] font-medium text-slate-500">Service</label>
-                          <Dropdown
+                          <label className="text-[11px] font-medium text-slate-500">Service / Labour</label>
+                          <SearchCombobox
                             value={selServiceId}
                             onChange={onServicePick}
-                            placeholder="Select service..."
+                            placeholder="Search service / labour..."
+                            searchPlaceholder="Type service name..."
                             className="mt-1 w-full"
                             size="sm"
                             options={services
                               .filter((s) => s.name.trim().length > 0)
-                              .map((s) => ({ value: s.id, label: s.name }))}
+                              .map((s) => ({
+                                value: s.id,
+                                label: s.name,
+                                sub: s.recurrenceDays ? `${s.recurrenceDays}d recurrence` : undefined,
+                                price: s.defaultPrice / 100,
+                              }))}
+                            formatPrice={(p) => `₹${p.toLocaleString("en-IN")}`}
                           />
                         </div>
                         <div className="w-full sm:w-20">
@@ -655,20 +794,24 @@ export default function JobCardDetailPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="text-[11px] font-medium text-slate-500">
-                            Choose from Catalogue (optional)
+                            Search Catalogue Part / SKU
                           </label>
-                          <select
+                          <SearchCombobox
                             value={selProductId}
-                            onChange={(e) => onProductPick(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] outline-none focus:border-accent-500"
-                          >
-                            <option value="">-- Custom / Other Part --</option>
-                            {products.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} (₹{(p.mrp / 100).toLocaleString("en-IN")})
-                              </option>
-                            ))}
-                          </select>
+                            onChange={onProductPick}
+                            placeholder="Search catalogue parts..."
+                            searchPlaceholder="Type part name, brand, or SKU..."
+                            className="mt-1 w-full"
+                            size="sm"
+                            allowClear
+                            options={products.map((p) => ({
+                              value: p.id,
+                              label: p.name,
+                              sub: p.sku ? `SKU: ${p.sku}` : undefined,
+                              price: p.mrp / 100,
+                            }))}
+                            formatPrice={(p) => `₹${p.toLocaleString("en-IN")}`}
+                          />
                         </div>
                         <div>
                           <label className="text-[11px] font-medium text-slate-500">Part / Product Name *</label>
@@ -825,6 +968,22 @@ export default function JobCardDetailPage() {
                           {rupees(totalPaise)}
                         </span>
                       </div>
+                      {detail.jobCard.advanceAmount > 0 && (
+                        <>
+                          <div className="flex gap-8 text-[13px] text-emerald-600 font-medium">
+                            <span>Advance Paid</span>
+                            <span className="w-24 text-right">
+                              −{rupees(detail.jobCard.advanceAmount)}
+                            </span>
+                          </div>
+                          <div className="flex gap-8 text-[14px] font-bold text-charcoal-900 pt-1 border-t border-slate-100">
+                            <span>Net Balance Due</span>
+                            <span className="w-24 text-right text-rose-600">
+                              {rupees(Math.max(totalPaise - detail.jobCard.advanceAmount, 0))}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -885,6 +1044,170 @@ export default function JobCardDetailPage() {
                   )}
                 </div>
 
+                {/* Remarks & Advance Payment Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Job Card Remarks */}
+                  <div className="rounded-xl2 border border-slate-200/80 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Edit3 size={15} className="text-slate-400" />
+                        <h3 className="text-[14px] font-semibold text-charcoal-900">Job Card Remarks / Note</h3>
+                      </div>
+                      {isEditable && (
+                        <button
+                          type="button"
+                          onClick={handleSaveRemarks}
+                          disabled={savingRemarks}
+                          className="text-xs font-semibold text-accent-600 hover:text-accent-500 disabled:opacity-50"
+                        >
+                          {savingRemarks ? "Saving..." : "Save Note"}
+                        </button>
+                      )}
+                    </div>
+                    {isEditable ? (
+                      <textarea
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                        placeholder="Enter customer requests, preexisting dents/scratches, or special technician notes..."
+                        rows={3}
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] focus:border-charcoal-900 focus:outline-none"
+                      />
+                    ) : (
+                      <p className="text-[13px] text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 whitespace-pre-wrap">
+                        {detail.jobCard.remarks || "No remarks noted."}
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-[11px] text-slate-400">
+                      Printed on Estimate, Proforma Invoice, and Tax Invoice PDFs.
+                    </p>
+                  </div>
+
+                  {/* Customer Advance Card */}
+                  <div className="rounded-xl2 border border-slate-200/80 bg-white p-5 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <CreditCard size={15} className="text-emerald-600" />
+                          <h3 className="text-[14px] font-semibold text-charcoal-900">Parts / Service Advance</h3>
+                        </div>
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/60">
+                          Account Advance
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-charcoal-900">
+                          {rupees(detail.jobCard.advanceAmount)}
+                        </span>
+                        <span className="text-xs text-slate-400">received for this job</span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Credited to customer wallet account and deducted from the final invoice amount.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvanceModal(true)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100 transition-colors w-full justify-center"
+                      >
+                        <Plus size={14} /> Record Advance Payment
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Outsourced Job Work (Lathe / Machining / Specialist) Section */}
+                <div className="rounded-xl2 border border-slate-200/80 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="rounded-lg bg-sky-50 p-2 text-sky-700 border border-sky-100">
+                        <Truck size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-[15px] font-semibold text-charcoal-900">
+                          Job Work / Outsourced Work
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Track lathe, head machining, bumper plastic welding, or specialist vendor work
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {detail.jobWorks && detail.jobWorks.length > 0 && (
+                        <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">
+                          Total Vendor Cost: {rupees(detail.jobWorks.reduce((s, j) => s + j.vendorCost, 0))}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowJobWorkModal(true)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-charcoal-900 shadow-sm hover:bg-slate-50 transition-colors"
+                      >
+                        <Plus size={14} /> Add Job Work
+                      </button>
+                    </div>
+                  </div>
+
+                  {(!detail.jobWorks || detail.jobWorks.length === 0) ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center">
+                      <p className="text-xs text-slate-400">
+                        No outsourced vendor work recorded for this job card.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200/70">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                          <tr>
+                            <th className="py-2.5 px-3">Vendor</th>
+                            <th className="py-2.5 px-3">Work Description</th>
+                            <th className="py-2.5 px-3">Challan / Ref</th>
+                            <th className="py-2.5 px-3">Cost (₹)</th>
+                            <th className="py-2.5 px-3">Status</th>
+                            <th className="py-2.5 px-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {detail.jobWorks.map((jw) => (
+                            <tr key={jw.id} className="hover:bg-slate-50/50">
+                              <td className="py-2.5 px-3 font-semibold text-charcoal-900">{jw.vendorName}</td>
+                              <td className="py-2.5 px-3 text-slate-700">
+                                <div>{jw.workDescription}</div>
+                                {jw.notes && <div className="text-[11px] text-slate-400 mt-0.5">{jw.notes}</div>}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-slate-500">{jw.vendorRef || "—"}</td>
+                              <td className="py-2.5 px-3 font-semibold text-charcoal-900">{rupees(jw.vendorCost)}</td>
+                              <td className="py-2.5 px-3">
+                                <select
+                                  value={jw.status}
+                                  onChange={(e) => handleUpdateJobWorkStatus(jw.id, e.target.value as any)}
+                                  className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium outline-none capitalize"
+                                >
+                                  <option value="sent">Sent</option>
+                                  <option value="in_progress">In Progress</option>
+                                  <option value="completed">Completed</option>
+                                  <option value="returned">Returned</option>
+                                </select>
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteJobWork(jw.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                  title="Delete entry"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
                 {detail.invoice && (
                   <div className="w-full rounded-xl2 border border-accent-500/20 bg-accent-500/5 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -923,6 +1246,221 @@ export default function JobCardDetailPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Advance Payment Modal */}
+            {showAdvanceModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-900/50 p-4 backdrop-blur-xs">
+                <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scaleUp">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                        <CreditCard size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-[15px] font-bold text-charcoal-900">Record Advance Payment</h4>
+                        <p className="text-xs text-slate-400">Parts / Labour deposit for this job</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvanceModal(false)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-charcoal-900"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleRecordAdvance} className="mt-4 space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Advance Amount (₹) *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={advanceAmountInput}
+                        onChange={(e) => setAdvanceAmountInput(e.target.value)}
+                        placeholder="e.g. 5000"
+                        required
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-semibold text-charcoal-900 focus:border-charcoal-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Payment Mode</label>
+                      <div className="mt-1.5 grid grid-cols-3 gap-2">
+                        {(["upi", "cash", "card"] as const).map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setAdvanceMode(m)}
+                            className={cn(
+                              "rounded-xl border py-2 text-xs font-semibold uppercase transition-colors",
+                              advanceMode === m
+                                ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Notes / Purpose (optional)</label>
+                      <input
+                        type="text"
+                        value={advanceNotes}
+                        onChange={(e) => setAdvanceNotes(e.target.value)}
+                        placeholder="e.g. Advance for special-order clutch plate & flywheel"
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-charcoal-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      This will record the advance on this Job Card, credit the customer's wallet account, and reflect on the Estimate & final Invoice.
+                    </p>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvanceModal(false)}
+                        className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submittingAdvance}
+                        className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        {submittingAdvance ? "Recording..." : "Record Advance"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Add Job Work Modal */}
+            {showJobWorkModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-900/50 p-4 backdrop-blur-xs">
+                <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scaleUp">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-lg bg-sky-50 p-2 text-sky-700">
+                        <Truck size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-[15px] font-bold text-charcoal-900">Add Outsourced Job Work</h4>
+                        <p className="text-xs text-slate-400">Track vendor lathe, machining, welding, or specialist work</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowJobWorkModal(false)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-charcoal-900"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCreateJobWork} className="mt-4 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600">Vendor / Workshop Name *</label>
+                        <input
+                          type="text"
+                          value={jwVendorName}
+                          onChange={(e) => setJwVendorName(e.target.value)}
+                          placeholder="e.g. Sri Balaji Lathe Works"
+                          required
+                          className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-charcoal-900 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600">Vendor Challan / Ref No</label>
+                        <input
+                          type="text"
+                          value={jwVendorRef}
+                          onChange={(e) => setJwVendorRef(e.target.value)}
+                          placeholder="e.g. CH-2024-88"
+                          className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-charcoal-900 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Work Description *</label>
+                      <textarea
+                        value={jwWorkDescription}
+                        onChange={(e) => setJwWorkDescription(e.target.value)}
+                        placeholder="e.g. Cylinder head resurfacing, valve seat grinding, and leak test"
+                        required
+                        rows={2}
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-charcoal-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600">Vendor Cost (₹)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={jwCost}
+                          onChange={(e) => setJwCost(e.target.value)}
+                          placeholder="0"
+                          className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-charcoal-900 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600">Initial Status</label>
+                        <select
+                          value={jwStatus}
+                          onChange={(e) => setJwStatus(e.target.value as any)}
+                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium focus:border-charcoal-900 focus:outline-none capitalize"
+                        >
+                          <option value="sent">Sent to Vendor</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                          <option value="returned">Returned</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Internal Notes (optional)</label>
+                      <input
+                        type="text"
+                        value={jwNotes}
+                        onChange={(e) => setJwNotes(e.target.value)}
+                        placeholder="e.g. Promised delivery by tomorrow 4 PM"
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-charcoal-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowJobWorkModal(false)}
+                        className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submittingJobWork}
+                        className="rounded-xl bg-charcoal-900 px-5 py-2 text-xs font-semibold text-white hover:bg-charcoal-800 disabled:opacity-50"
+                      >
+                        {submittingJobWork ? "Adding..." : "Add Job Work"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             )}
           </div>

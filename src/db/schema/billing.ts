@@ -20,6 +20,7 @@ export const invoices = pgTable("invoices", {
   discount: integer("discount").notNull().default(0),
   total: integer("total").notNull(),
   status: invoiceStatusEnum("status").notNull().default("draft"),
+  remarks: text("remarks"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   finalizedAt: timestamp("finalized_at", { withTimezone: true }),
 }, (t) => [

@@ -5,7 +5,7 @@ import { users } from "./identity";
 import { services } from "./catalog";
 import { offers } from "./offers";
 import { products } from "./products";
-import { inventoryItems } from "./inventory";
+import { inventoryItems, vendors } from "./inventory";
 import { enquiries } from "./enquiry";
 
 export const jobCardStatusEnum = pgEnum("job_card_status", [
@@ -33,6 +33,8 @@ export const jobCards = pgTable("job_cards", {
   total: integer("total").notNull().default(0), // paise
   status: jobCardStatusEnum("status").notNull().default("draft"),
   source: text("source").notNull().default("walkin"), // walkin | whatsapp | appointment | anpr
+  remarks: text("remarks"),
+  advanceAmount: integer("advance_amount").notNull().default(0), // paise (parts/work advance)
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
 }, (t) => [
@@ -65,4 +67,23 @@ export const jobCardProducts = pgTable("job_card_products", {
   qty: integer("qty").notNull().default(1),
   price: integer("price").notNull(), // sale price snapshot (paise)
 });
+
+export const jobCardJobWorks = pgTable("job_card_job_works", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  branchId: uuid("branch_id").notNull().references(() => branches.id, { onDelete: "cascade" }),
+  jobCardId: uuid("job_card_id").notNull().references(() => jobCards.id, { onDelete: "cascade" }),
+  vendorId: uuid("vendor_id").references(() => vendors.id, { onDelete: "set null" }),
+  vendorName: text("vendor_name").notNull(),
+  workDescription: text("work_description").notNull(),
+  vendorCost: integer("vendor_cost").notNull().default(0), // paise
+  status: text("status").notNull().default("sent"), // sent | in_progress | completed | returned
+  vendorRef: text("vendor_ref"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("job_card_job_works_org_idx").on(t.orgId),
+  index("job_card_job_works_job_card_idx").on(t.jobCardId),
+]);
+
 

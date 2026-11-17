@@ -1,9 +1,10 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   jobCards,
   jobCardServices,
   jobCardProducts,
+  jobCardJobWorks,
   services,
   clients,
   vehicles,
@@ -61,11 +62,17 @@ export async function getJobCardDetail(orgId: string, jobCardId: string) {
 
   const invoice = await db.query.invoices.findFirst({ where: eq(invoices.jobCardId, jobCardId) });
 
+  const jobWorks = await db.query.jobCardJobWorks.findMany({
+    where: and(eq(jobCardJobWorks.jobCardId, jobCardId), eq(jobCardJobWorks.orgId, orgId)),
+    orderBy: [desc(jobCardJobWorks.createdAt)],
+  });
+
   return {
     jobCard,
     client,
     vehicle: vehicle ? { ...vehicle, makeName: make?.name ?? null, modelName: model?.name ?? null } : null,
     lineItems,
+    jobWorks,
     serviceAdvisorName: advisor?.name ?? null,
     invoice: invoice ?? null,
   };

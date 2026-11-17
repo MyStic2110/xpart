@@ -88,6 +88,7 @@ export async function completeJobCardAndGenerateInvoice(orgId: string, jobCardId
         total: jobCard.total,
         status: isZeroTotal ? "paid" : "draft",
         finalizedAt: isZeroTotal ? now : null,
+        remarks: jobCard.remarks ?? null,
       })
       .returning();
 
@@ -98,23 +99,52 @@ export async function completeJobCardAndGenerateInvoice(orgId: string, jobCardId
 export async function listInvoices(orgId: string, branchId?: string | null) {
   const conds = [eq(invoices.orgId, orgId)];
   if (branchId) conds.push(eq(invoices.branchId, branchId));
+
+  const paymentsSubquery = db
+    .select({
+      invoiceId: payments.invoiceId,
+      paidAmount: sql<number>`COALESCE(SUM(${payments.amount}), 0)::int`.as("paid_amount"),
+    })
+    .from(payments)
+    .groupBy(payments.invoiceId)
+    .as("payments_subquery");
+
   return db
     .select({
       id: invoices.id,
       invoiceNo: invoices.invoiceNo,
       total: invoices.total,
       status: invoices.status,
+      remarks: invoices.remarks,
       createdAt: invoices.createdAt,
       finalizedAt: invoices.finalizedAt,
       clientName: clients.name,
       clientPhone: clients.phone,
       plateNumber: vehicles.plateNumber,
+      paidAmount: sql<number>`COALESCE(${paymentsSubquery.paidAmount}, 0)::int`,
+      balanceDue: sql<number>`GREATEST(${invoices.total} - COALESCE(${paymentsSubquery.paidAmount}, 0), 0)::int`,
     })
     .from(invoices)
     .innerJoin(clients, eq(clients.id, invoices.clientId))
     .innerJoin(vehicles, eq(vehicles.id, invoices.vehicleId))
+    .leftJoin(paymentsSubquery, eq(paymentsSubquery.invoiceId, invoices.id))
     .where(and(...conds))
     .orderBy(desc(invoices.createdAt));
+}
+
+export async function updateInvoiceRemarks(orgId: string, invoiceId: string, remarks: string | null) {
+  const inv = await db.query.invoices.findFirst({
+    where: and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)),
+  });
+  if (!inv) throw new InvoiceError("invoice not found", 404);
+
+  const [updated] = await db
+    .update(invoices)
+    .set({ remarks })
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)))
+    .returning();
+
+  return updated;
 }
 
 export async function getInvoiceDetail(orgId: string, invoiceId: string) {

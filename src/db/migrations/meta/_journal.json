@@ -288,6 +288,13 @@
       "when": 1784145815723,
       "tag": "0040_add_enquiry_id_to_job_cards",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784570000000,
+      "tag": "0041_add_remarks_advances_and_job_works",
+      "breakpoints": true
     }
   ]
 }
