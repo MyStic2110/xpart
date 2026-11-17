@@ -28,11 +28,9 @@ import {
   CalendarDays,
   Cctv,
   LogOut,
-  Bell,
   Stethoscope,
   MapPin,
 } from "lucide-react";
-import { api, Notification } from "../api";
 
 const NAV = [
   { label: "Dashboard", icon: LayoutGrid, to: "/dashboard" },
@@ -65,119 +63,19 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
   const location = useLocation();
   const settingsActive = SETTINGS_SUBNAV.some((s) => location.pathname.startsWith(s.to));
   const { branchId, setBranchId, branches } = useBranch();
-
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
 
   const selectedBranch = branches.find((b) => b.id === branchId) ?? null;
 
-  useEffect(() => {
-    function load() {
-      api.listNotifications().then(setNotifications).catch(() => { });
-    }
-    load();
-    const interval = setInterval(load, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
   return (
     <aside className="hidden md:flex w-64 h-full shrink-0 flex-col border-r border-slate-200/80 bg-white px-4 py-4 z-20 overflow-hidden">
-      {/* Brand Header & Notifications */}
+      {/* Brand Header */}
       <div className="shrink-0">
-        <div className="flex items-center justify-between px-2 mb-3.5 relative">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-charcoal-900 flex items-center justify-center shrink-0">
-              <Gauge size={15} strokeWidth={2} className="text-white" />
-            </div>
-            <span className="text-[14px] font-semibold text-charcoal-900 tracking-tight truncate max-w-[110px]">{orgName}</span>
+        <div className="flex items-center gap-2.5 px-2 mb-3.5">
+          <div className="w-7 h-7 rounded-lg bg-charcoal-900 flex items-center justify-center shrink-0">
+            <Gauge size={15} strokeWidth={2} className="text-white" />
           </div>
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={`relative p-1.5 rounded-lg hover:bg-slate-50 transition-colors shrink-0 ${showNotifications ? "bg-slate-50 text-charcoal-900" : "text-slate-400"}`}
-            >
-              <Bell size={16} strokeWidth={1.75} />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
-              )}
-            </button>
-
-            {showNotifications && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-                <div className="absolute left-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-elevated z-50 overflow-hidden animate-slideUp">
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-slate-50/50">
-                    <span className="text-[12px] font-semibold text-charcoal-900">Notifications ({unreadCount} unread)</span>
-                    {unreadCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await api.markAllNotificationsRead();
-                            setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-                          } catch { }
-                        }}
-                        className="text-[11px] font-bold text-accent-700 hover:underline"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center text-slate-400 text-[12px]">
-                        <Bell size={20} strokeWidth={1.5} className="mx-auto text-slate-300 mb-1.5" />
-                        No notifications yet.
-                      </div>
-                    ) : (
-                      notifications.map((n) => {
-                        let Icon = Bell;
-                        let iconColor = "text-slate-400 bg-slate-50 border-slate-100";
-                        if (n.type === "enquiry") {
-                          Icon = Inbox;
-                          iconColor = "text-sky-500 bg-sky-50 border-sky-100";
-                        } else if (n.type === "payment") {
-                          Icon = Receipt;
-                          iconColor = "text-emerald-500 bg-emerald-50 border-emerald-100";
-                        }
-
-                        return (
-                          <div
-                            key={n.id}
-                            onClick={async () => {
-                              if (!n.isRead) {
-                                try {
-                                  await api.markNotificationRead(n.id);
-                                  setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, isRead: true } : item));
-                                } catch { }
-                              }
-                            }}
-                            className={`flex items-start gap-3 p-3.5 text-left text-[12.5px] cursor-pointer transition-colors ${n.isRead ? "bg-white hover:bg-slate-50" : "bg-sky-50/[0.12] hover:bg-sky-50/[0.2] border-l-2 border-sky-400 pl-3"
-                              }`}
-                          >
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${iconColor}`}>
-                              <Icon size={14} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className={`font-semibold text-charcoal-900 leading-tight ${n.isRead ? "" : "text-sky-950 font-bold"}`}>{n.title}</p>
-                              <p className="mt-0.5 text-slate-500 text-[11.5px] leading-snug break-words">{n.message}</p>
-                              <p className="mt-1 text-slate-400 text-[10px]">{new Date(n.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</p>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <span className="text-[14px] font-semibold text-charcoal-900 tracking-tight truncate">{orgName}</span>
         </div>
 
         {/* Branch switcher — scopes every operational module to the chosen branch */}
