@@ -57,7 +57,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
            where org_id = ${orgId} and date_trunc('month', expense_date) = date_trunc('month', current_date) ${b ? sql`and branch_id = ${b}` : sql``}) as expense_month,
         ${totalClients} as total_clients,
         (select count(*) from invoices i where i.org_id = ${orgId} and i.status in ('draft','partial') ${inv}) as pending_invoices,
-        (select coalesce(sum(i.total),0) from invoices i where i.org_id = ${orgId} and i.status in ('draft','partial') ${inv}) as pending_amount,
+        (select coalesce(sum(i.total - coalesce((select sum(p.amount) from payments p where p.invoice_id = i.id), 0)), 0)
+           from invoices i where i.org_id = ${orgId} and i.status in ('draft','partial') ${inv}) as pending_amount,
         (select count(*) from sales_actions where org_id = ${orgId} and status in ('pending','contacted','rescheduled') ${sa}) as open_followups,
         (select coalesce(sum(potential_revenue),0) from sales_actions
            where org_id = ${orgId} and status in ('pending','contacted','rescheduled') and abs(due_date - current_date) <= 7 ${sa}) as potential_today,
