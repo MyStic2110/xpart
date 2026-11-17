@@ -36,6 +36,15 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     loadBranches();
   }, [loadBranches]);
 
+  useEffect(() => {
+    if (branches.length > 0 && branchId !== "all") {
+      const exists = branches.some((b) => b.id === branchId);
+      if (!exists) {
+        setBranchId("all");
+      }
+    }
+  }, [branches, branchId]);
+
   function setBranchId(id: string) {
     setBranchIdState(id);
     localStorage.setItem("branchId", id);
