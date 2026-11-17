@@ -16,6 +16,8 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 30m
           script: |
             cd ~/xpart
             git fetch origin
