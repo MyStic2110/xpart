@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, X, AlertCircle, Wallet, Receipt, CalendarDays, Pencil, Trash2, XCircle, Tag, Layers } from "lucide-react";
+import { Plus, X, AlertCircle, Wallet, Receipt, CalendarDays, Pencil, Trash2, XCircle, Tag, Layers, Eye } from "lucide-react";
 import { api, Expense, ExpenseCategory, ExpenseInput, ExpenseSummary } from "../api";
 import { useBranch } from "../BranchContext";
 import Sidebar from "../components/Sidebar";
@@ -76,6 +76,7 @@ export default function Expenses() {
   // Expense drawer
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [viewExpense, setViewExpense] = useState<Expense | null>(null);
   const [form, setForm] = useState<ExpenseInput>(() => emptyForm(branchId, branches));
   const [saving, setSaving] = useState(false);
 
@@ -319,7 +320,11 @@ export default function Expenses() {
                     </tr>
                   ) : (
                     pageRows.map((x) => (
-                      <tr key={x.id} className="text-[13.5px] text-charcoal-900 hover:bg-slate-50/60">
+                      <tr
+                        key={x.id}
+                        onClick={() => setViewExpense(x)}
+                        className="text-[13.5px] text-charcoal-900 hover:bg-slate-50/60 cursor-pointer transition-colors"
+                      >
                         <td className="px-5 py-4 whitespace-nowrap text-slate-500">
                           {new Date(x.expenseDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                         </td>
@@ -338,10 +343,25 @@ export default function Expenses() {
                         <td className="px-5 py-4 whitespace-nowrap text-slate-500">{x.paidBy || "—"}</td>
                         <td className="px-5 py-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button onClick={() => openEdit(x)} title="Edit" className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-charcoal-900">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setViewExpense(x); }}
+                              title="View details"
+                              className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-charcoal-900 transition-colors"
+                            >
+                              <Eye size={15} strokeWidth={1.75} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openEdit(x); }}
+                              title="Edit"
+                              className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-charcoal-900 transition-colors"
+                            >
                               <Pencil size={15} strokeWidth={1.75} />
                             </button>
-                            <button onClick={() => removeExpense(x)} title="Delete" className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeExpense(x); }}
+                              title="Delete"
+                              className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            >
                               <Trash2 size={15} strokeWidth={1.75} />
                             </button>
                           </div>
@@ -409,6 +429,136 @@ export default function Expenses() {
                 {saving ? "Saving..." : editId ? "Save changes" : "Add expense"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Expense View Drawer */}
+      {viewExpense && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-charcoal-950/30 animate-fadeIn" onClick={() => setViewExpense(null)}>
+          <div
+            className="h-full w-full max-w-md bg-white shadow-elevated overflow-y-auto animate-slideUp flex flex-col justify-between"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-charcoal-900">
+                    <Receipt size={16} />
+                  </div>
+                  <div>
+                    <h2 className="text-[16px] font-semibold text-charcoal-900">Expense details</h2>
+                    <p className="text-[11.5px] text-slate-400">
+                      Recorded on {new Date(viewExpense.createdAt || viewExpense.expenseDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setViewExpense(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-charcoal-900">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Amount hero */}
+              <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-6 text-center">
+                <span className="text-[11.5px] font-medium uppercase tracking-wider text-slate-400">Amount Paid</span>
+                <p className="mt-1 text-3xl font-bold tracking-tight text-charcoal-900">
+                  ₹{(viewExpense.amount / 100).toLocaleString("en-IN")}
+                </p>
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  {viewExpense.categoryName ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200/80 px-2.5 py-0.5 text-[12px] font-medium text-charcoal-900">
+                      <Tag size={11} /> {viewExpense.categoryName}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] text-slate-400">
+                      Uncategorized
+                    </span>
+                  )}
+                  <span className="rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700">
+                    {viewExpense.paymentMode}
+                  </span>
+                </div>
+              </div>
+
+              {/* Detail fields */}
+              <div className="space-y-4 px-6 py-5 text-[13.5px]">
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-400 font-medium">Expense Date</span>
+                  <span className="font-semibold text-charcoal-900">
+                    {new Date(viewExpense.expenseDate).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-400 font-medium">Recipient (Paid to)</span>
+                  <span className="font-semibold text-charcoal-900">{viewExpense.recipient || "—"}</span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-400 font-medium">Paid by</span>
+                  <span className="font-semibold text-charcoal-900">{viewExpense.paidBy || "—"}</span>
+                </div>
+
+                {viewExpense.branchId && (
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-slate-400 font-medium">Branch</span>
+                    <span className="font-semibold text-charcoal-900">
+                      {branches.find((b) => b.id === viewExpense.branchId)?.name || viewExpense.branchId}
+                    </span>
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <span className="block text-slate-400 font-medium mb-1.5">Notes</span>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 text-[13px] text-charcoal-900 leading-relaxed min-h-[60px]">
+                    {viewExpense.notes ? (
+                      viewExpense.notes
+                    ) : (
+                      <span className="italic text-slate-400">No additional notes provided.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions footer */}
+            <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = viewExpense;
+                  setViewExpense(null);
+                  removeExpense(target);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 py-2.5 text-[13px] font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+              >
+                <Trash2 size={15} /> Delete
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setViewExpense(null)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = viewExpense;
+                    setViewExpense(null);
+                    openEdit(target);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-charcoal-900 px-4 py-2.5 text-[13px] font-medium text-white hover:bg-charcoal-800 transition-colors"
+                >
+                  <Pencil size={14} /> Edit expense
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
