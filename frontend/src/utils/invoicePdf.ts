@@ -343,6 +343,7 @@ export function downloadInvoicePdf(detail: InvoiceDetail, orgName: string) {
     total: detail.invoice.total,
     paidSoFar: detail.paidSoFar,
     balanceDue: detail.balanceDue,
+    advancePaid: detail.jobCard?.advanceAmount,
     remarks: detail.invoice.remarks,
     footerNote: detail.balanceDue > 0 ? `Please remit ${formatMoney(detail.balanceDue)} toward ${invLabel}.` : "",
     fileName: `Invoice-${safeRef}.pdf`,

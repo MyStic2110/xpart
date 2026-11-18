@@ -215,6 +215,12 @@ export default function InvoiceDetailPage() {
                       <span className="font-semibold text-charcoal-900">Total</span>
                       <span className="font-semibold text-charcoal-900">{rupees(detail.invoice.total)}</span>
                     </div>
+                    {detail.jobCard?.advanceAmount && detail.jobCard.advanceAmount > 0 && (
+                      <div className="flex justify-between items-center text-emerald-600">
+                        <span className="text-[13px]">Advance on Job Card</span>
+                        <span className="font-semibold">−{rupees(detail.jobCard.advanceAmount)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Paid so far</span>
                       <span className="font-medium text-emerald-600">{rupees(detail.paidSoFar)}</span>
@@ -278,13 +284,27 @@ export default function InvoiceDetailPage() {
                 <div className="mt-6 rounded-xl2 border border-slate-100 bg-white p-5 shadow-card">
                   <h3 className="text-[14px] font-semibold text-charcoal-900 mb-3">Payment history</h3>
                   <div className="divide-y divide-slate-100">
-                    {detail.payments.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between py-2.5 text-[13px]">
-                        <span className="font-medium text-charcoal-900">{MODE_LABELS[p.mode]}</span>
-                        <span className="text-slate-400">{new Date(p.paidAt).toLocaleString("en-IN")}</span>
-                        <span className="font-medium text-charcoal-900">{rupees(p.amount)}</span>
-                      </div>
-                    ))}
+                    {detail.payments.map((p) => {
+                      const isAdvance =
+                        p.txnRef === "Job Card Advance" ||
+                        (p.mode === "wallet" && p.txnRef?.toLowerCase().includes("advance"));
+                      return (
+                        <div key={p.id} className="flex items-center justify-between py-2.5 text-[13px]">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-charcoal-900">
+                              {isAdvance ? "Advance Payment" : (MODE_LABELS[p.mode] ?? p.mode)}
+                            </span>
+                            {p.txnRef && (
+                              <span className="text-[11px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 font-normal">
+                                {p.txnRef}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-slate-400">{new Date(p.paidAt).toLocaleString("en-IN")}</span>
+                          <span className="font-medium text-charcoal-900">{rupees(p.amount)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

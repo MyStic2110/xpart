@@ -12,6 +12,7 @@ import {
   users,
   clients,
   invoices,
+  payments,
   enquiries,
   wallets,
   walletTransactions,
@@ -438,7 +439,11 @@ export async function recordJobCardAdvance(
       .where(eq(jobCards.id, jobCardId))
       .returning();
 
-    // Topup client's wallet with the advance amount
+    // Check if an invoice already exists for this job card
+    const existingInvoice = await tx.query.invoices.findFirst({
+      where: eq(invoices.jobCardId, jobCardId),
+    });
+
     let wallet = await tx.query.wallets.findFirst({
       where: and(eq(wallets.clientId, jc.clientId), eq(wallets.orgId, auth.orgId)),
     });
@@ -453,19 +458,66 @@ export async function recordJobCardAdvance(
         .returning();
     }
 
-    const newBalance = wallet.balance + input.amount;
-    await tx.update(wallets).set({ balance: newBalance }).where(eq(wallets.id, wallet.id));
+    if (existingInvoice && existingInvoice.status !== "cancelled" && existingInvoice.status !== "paid") {
+      const pRows = await tx
+        .select({ sum: sql<number>`COALESCE(SUM(amount), 0)::int` })
+        .from(payments)
+        .where(eq(payments.invoiceId, existingInvoice.id));
+      const paidSoFar = pRows[0]?.sum ?? 0;
+      const balanceDue = Math.max(existingInvoice.total - paidSoFar, 0);
+      const applyAmt = Math.min(input.amount, balanceDue);
 
-    await tx.insert(walletTransactions).values({
-      walletId: wallet.id,
-      type: "credit",
-      source: "topup",
-      amount: input.amount,
-      refId: jobCardId,
-      balanceAfter: newBalance,
-    });
+      if (applyAmt > 0) {
+        await tx.insert(payments).values({
+          invoiceId: existingInvoice.id,
+          mode: (["cash", "upi", "card", "wallet"].includes(input.mode ?? "") ? input.mode : "wallet") as any,
+          amount: applyAmt,
+          txnRef: input.notes ? `Advance: ${input.notes}` : "Job Card Advance",
+          paidAt: new Date(),
+        });
 
-    return { jobCard: updatedJobCard, wallet: { ...wallet, balance: newBalance } };
+        const newPaidTotal = paidSoFar + applyAmt;
+        const isPaid = newPaidTotal >= existingInvoice.total;
+        await tx
+          .update(invoices)
+          .set({
+            status: isPaid ? "paid" : "partial",
+            finalizedAt: isPaid ? new Date() : null,
+          })
+          .where(eq(invoices.id, existingInvoice.id));
+      }
+
+      // Any excess beyond invoice total is credited to client wallet
+      const excess = input.amount - applyAmt;
+      if (excess > 0) {
+        const newBalance = wallet.balance + excess;
+        await tx.update(wallets).set({ balance: newBalance }).where(eq(wallets.id, wallet.id));
+        await tx.insert(walletTransactions).values({
+          walletId: wallet.id,
+          type: "credit",
+          source: "topup",
+          amount: excess,
+          refId: jobCardId,
+          balanceAfter: newBalance,
+        });
+        wallet = { ...wallet, balance: newBalance };
+      }
+    } else {
+      // Topup client's wallet with the advance amount
+      const newBalance = wallet.balance + input.amount;
+      await tx.update(wallets).set({ balance: newBalance }).where(eq(wallets.id, wallet.id));
+      await tx.insert(walletTransactions).values({
+        walletId: wallet.id,
+        type: "credit",
+        source: "topup",
+        amount: input.amount,
+        refId: jobCardId,
+        balanceAfter: newBalance,
+      });
+      wallet = { ...wallet, balance: newBalance };
+    }
+
+    return { jobCard: updatedJobCard, wallet };
   });
 }
 

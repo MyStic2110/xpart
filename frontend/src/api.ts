@@ -821,6 +821,7 @@ export interface InvoiceDetail {
     appliedOfferTitle?: string | null;
     remarks: string | null;
   };
+  jobCard?: { id: string; advanceAmount: number } | null;
   client: ClientRecord | null;
   vehicle: { plateNumber: string } | null;
   lineItems: { id: string; serviceName: string; qty: number; price: number; type?: "service" | "product" }[];

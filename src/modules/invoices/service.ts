@@ -92,6 +92,49 @@ export async function completeJobCardAndGenerateInvoice(orgId: string, jobCardId
       })
       .returning();
 
+    // Auto-apply advance received on the job card
+    const advanceAmount = jobCard.advanceAmount ?? 0;
+    const advanceToApply = Math.min(advanceAmount, jobCard.total);
+
+    if (advanceToApply > 0) {
+      await tx.insert(payments).values({
+        invoiceId: invoice.id,
+        mode: "wallet",
+        amount: advanceToApply,
+        txnRef: "Job Card Advance",
+        paidAt: now,
+      });
+
+      // Deduct from client's wallet to keep accounting balanced
+      const wallet = await tx.query.wallets.findFirst({
+        where: and(eq(wallets.clientId, jobCard.clientId), eq(wallets.orgId, orgId)),
+      });
+      if (wallet && wallet.balance >= advanceToApply) {
+        const newBalance = wallet.balance - advanceToApply;
+        await tx.update(wallets).set({ balance: newBalance }).where(eq(wallets.id, wallet.id));
+        await tx.insert(walletTransactions).values({
+          walletId: wallet.id,
+          type: "debit",
+          source: "invoice_payment",
+          amount: advanceToApply,
+          refId: invoice.id,
+          balanceAfter: newBalance,
+        });
+      }
+
+      const isFullyPaid = advanceToApply >= jobCard.total;
+      const status = isFullyPaid ? "paid" : "partial";
+      await tx
+        .update(invoices)
+        .set({
+          status,
+          finalizedAt: isFullyPaid ? now : null,
+        })
+        .where(eq(invoices.id, invoice.id));
+      invoice.status = status;
+      if (isFullyPaid) invoice.finalizedAt = now;
+    }
+
     return { jobCard: updatedJobCard, invoice, alreadyExisted: false };
   });
 }
@@ -190,18 +233,26 @@ export async function getInvoiceDetail(orgId: string, invoiceId: string) {
       pointsBalance = await getAndUpdateUsablePoints(tx, wallet.id, orgId);
     }
 
+    const jc = invoice.jobCardId
+      ? await tx.query.jobCards.findFirst({
+          where: eq(jobCards.id, invoice.jobCardId),
+          columns: { id: true, advanceAmount: true },
+        })
+      : null;
+
     return {
       invoice: {
         ...invoice,
         appliedOfferCode: appliedOffer?.code ?? null,
         appliedOfferTitle: appliedOffer?.title ?? null,
       },
+      jobCard: jc ? { id: jc.id, advanceAmount: jc.advanceAmount } : null,
       client,
       vehicle,
       lineItems,
       payments: paymentRows,
       paidSoFar,
-      balanceDue: invoice.total - paidSoFar,
+      balanceDue: Math.max(invoice.total - paidSoFar, 0),
       walletBalance: isThirdParty ? 0 : wallet?.balance ?? 0,
       pointsBalance,
       loyaltyEnabled: loyalty.enabled && !isThirdParty,
