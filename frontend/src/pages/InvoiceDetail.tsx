@@ -171,30 +171,59 @@ export default function InvoiceDetailPage() {
               </div>
 
               <div className="mt-6 rounded-xl2 border border-slate-100 bg-white p-5 shadow-card">
-                <h3 className="text-[14px] font-semibold text-charcoal-900 mb-4">Items</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[14px] font-semibold text-charcoal-900">Items</h3>
+                  <span className="text-xs text-slate-400">{detail.lineItems.length} item{detail.lineItems.length === 1 ? "" : "s"}</span>
+                </div>
+
+                {/* Column Headers */}
+                <div className="grid grid-cols-12 items-center text-[11px] font-semibold text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-100">
+                  <span className="col-span-7">Item / Service</span>
+                  <span className="col-span-2 text-center">Qty</span>
+                  <span className="col-span-3 text-right">Amount</span>
+                </div>
+
                 <div className="divide-y divide-slate-100">
                   {detail.lineItems.map((li) => (
-                    <div key={li.id} className="flex items-center justify-between py-2.5 text-[13.5px]">
-                      <span className="text-charcoal-900">{li.serviceName}</span>
-                      <span className="text-slate-400">Qty {li.qty}</span>
-                      <span className="font-medium text-charcoal-900">{rupees(li.qty * li.price)}</span>
+                    <div key={li.id} className="grid grid-cols-12 items-center py-2.5 text-[13.5px]">
+                      <span className="col-span-7 font-medium text-charcoal-900 truncate pr-2">{li.serviceName}</span>
+                      <span className="col-span-2 text-center text-slate-400 text-xs">Qty {li.qty}</span>
+                      <span className="col-span-3 text-right font-medium text-charcoal-900">{rupees(li.qty * li.price)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col items-end gap-1 text-[13px]">
-                  <div className="flex gap-8"><span className="text-slate-400">Subtotal</span><span className="font-medium text-charcoal-900 w-24 text-right">{rupees(detail.invoice.subtotal)}</span></div>
-                  <div className="flex gap-8"><span className="text-slate-400">Discount</span><span className="font-medium text-charcoal-900 w-24 text-right">−{rupees(detail.invoice.discount)}</span></div>
-                  {Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0) > 0 && (
-                    <div className="flex gap-8">
-                      <span className="text-slate-400">Tax / GST</span>
-                      <span className="font-medium text-charcoal-900 w-24 text-right">
-                        {rupees(Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0))}
-                      </span>
+
+                <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col items-end">
+                  <div className="w-64 space-y-2 text-[13px]">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Subtotal</span>
+                      <span className="font-medium text-charcoal-900">{rupees(detail.invoice.subtotal)}</span>
                     </div>
-                  )}
-                  <div className="flex gap-8 text-[15px]"><span className="font-semibold text-charcoal-900">Total</span><span className="font-semibold text-charcoal-900 w-24 text-right">{rupees(detail.invoice.total)}</span></div>
-                  <div className="flex gap-8"><span className="text-slate-400">Paid so far</span><span className="font-medium text-emerald-600 w-24 text-right">{rupees(detail.paidSoFar)}</span></div>
-                  <div className="flex gap-8 text-[15px]"><span className="font-semibold text-charcoal-900">Balance due</span><span className="font-semibold text-charcoal-900 w-24 text-right">{rupees(detail.balanceDue)}</span></div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Discount</span>
+                      <span className="font-medium text-charcoal-900">−{rupees(detail.invoice.discount)}</span>
+                    </div>
+                    {Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Tax / GST</span>
+                        <span className="font-medium text-charcoal-900">
+                          {rupees(Math.max(detail.invoice.total - Math.max(detail.invoice.subtotal - detail.invoice.discount, 0), 0))}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[15px]">
+                      <span className="font-semibold text-charcoal-900">Total</span>
+                      <span className="font-semibold text-charcoal-900">{rupees(detail.invoice.total)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Paid so far</span>
+                      <span className="font-medium text-emerald-600">{rupees(detail.paidSoFar)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[15px]">
+                      <span className="font-semibold text-charcoal-900">Balance due</span>
+                      <span className={`font-semibold ${detail.balanceDue > 0 ? "text-red-600" : "text-charcoal-900"}`}>{rupees(detail.balanceDue)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
