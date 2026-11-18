@@ -282,26 +282,41 @@ export default function InvoiceDetailPage() {
 
               {detail.payments.length > 0 && (
                 <div className="mt-6 rounded-xl2 border border-slate-100 bg-white p-5 shadow-card">
-                  <h3 className="text-[14px] font-semibold text-charcoal-900 mb-3">Payment history</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[14px] font-semibold text-charcoal-900">Payment history</h3>
+                    <span className="text-xs text-slate-400">
+                      {detail.payments.length} payment{detail.payments.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  {/* Column Headers */}
+                  <div className="grid grid-cols-12 items-center text-[11px] font-semibold text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-100">
+                    <span className="col-span-5">Payment Method</span>
+                    <span className="col-span-4 text-left">Date & Time</span>
+                    <span className="col-span-3 text-right">Amount</span>
+                  </div>
+
                   <div className="divide-y divide-slate-100">
                     {detail.payments.map((p) => {
                       const isAdvance =
                         p.txnRef === "Job Card Advance" ||
                         (p.mode === "wallet" && p.txnRef?.toLowerCase().includes("advance"));
                       return (
-                        <div key={p.id} className="flex items-center justify-between py-2.5 text-[13px]">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-charcoal-900">
+                        <div key={p.id} className="grid grid-cols-12 items-center py-2.5 text-[13px]">
+                          <div className="col-span-5 flex items-center gap-2 min-w-0 pr-2">
+                            <span className="font-medium text-charcoal-900 truncate">
                               {isAdvance ? "Advance Payment" : (MODE_LABELS[p.mode] ?? p.mode)}
                             </span>
                             {p.txnRef && (
-                              <span className="text-[11px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 font-normal">
+                              <span className="shrink-0 text-[10.5px] text-slate-500 bg-slate-100 border border-slate-200/60 rounded px-1.5 py-0.5 font-normal">
                                 {p.txnRef}
                               </span>
                             )}
                           </div>
-                          <span className="text-slate-400">{new Date(p.paidAt).toLocaleString("en-IN")}</span>
-                          <span className="font-medium text-charcoal-900">{rupees(p.amount)}</span>
+                          <span className="col-span-4 text-left text-slate-400 text-xs truncate">
+                            {new Date(p.paidAt).toLocaleString("en-IN")}
+                          </span>
+                          <span className="col-span-3 text-right font-medium text-charcoal-900">{rupees(p.amount)}</span>
                         </div>
                       );
                     })}
