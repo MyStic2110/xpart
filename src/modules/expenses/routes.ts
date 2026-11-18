@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { eq, and, gte, lte, desc, sql, type SQL } from "drizzle-orm";
+import { eq, and, or, isNull, gte, lte, desc, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { expenses, expenseCategories } from "@/db/schema";
 import { requireAuth, requireRole } from "@/middleware/auth";
@@ -97,7 +97,9 @@ export async function expenseRoutes(app: FastifyInstance) {
     const q = req.query as Record<string, string | undefined>;
 
     const conds: SQL[] = [eq(expenses.orgId, auth.orgId)];
-    if (q.branchId && q.branchId !== "all") conds.push(eq(expenses.branchId, q.branchId));
+    if (q.branchId && q.branchId !== "all") {
+      conds.push(or(eq(expenses.branchId, q.branchId), isNull(expenses.branchId))!);
+    }
     if (q.categoryId) conds.push(eq(expenses.categoryId, q.categoryId));
     if (q.mode) conds.push(eq(expenses.paymentMode, q.mode));
     if (q.from) conds.push(gte(expenses.expenseDate, q.from));
@@ -130,7 +132,9 @@ export async function expenseRoutes(app: FastifyInstance) {
     const q = req.query as Record<string, string | undefined>;
 
     const conds: SQL[] = [eq(expenses.orgId, auth.orgId)];
-    if (q.branchId && q.branchId !== "all") conds.push(eq(expenses.branchId, q.branchId));
+    if (q.branchId && q.branchId !== "all") {
+      conds.push(or(eq(expenses.branchId, q.branchId), isNull(expenses.branchId))!);
+    }
 
     const monthStart = new Date();
     monthStart.setDate(1);

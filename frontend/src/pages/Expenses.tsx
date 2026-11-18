@@ -16,16 +16,24 @@ const PAGE_SIZE = 12;
 // Free-text payment modes — these are just the common suggestions in the dropdown.
 const PAYMENT_MODES = ["Cash", "Online payment", "UPI", "Card", "Cheque", "Bank transfer"];
 
-const emptyForm = (branchId?: string): ExpenseInput => ({
-  branchId: branchId && branchId !== "all" ? branchId : "",
-  categoryId: "",
-  expenseDate: new Date().toISOString().slice(0, 10),
-  amount: 0,
-  paymentMode: "Cash",
-  recipient: "",
-  paidBy: "",
-  notes: "",
-});
+const emptyForm = (branchId?: string, branches?: { id: string }[]): ExpenseInput => {
+  let defaultBranch = "";
+  if (branchId && branchId !== "all") {
+    defaultBranch = branchId;
+  } else if (branches && branches.length === 1) {
+    defaultBranch = branches[0].id;
+  }
+  return {
+    branchId: defaultBranch,
+    categoryId: "",
+    expenseDate: new Date().toISOString().slice(0, 10),
+    amount: 0,
+    paymentMode: "Cash",
+    recipient: "",
+    paidBy: "",
+    notes: "",
+  };
+};
 
 // Native select styled to match FloatingInput's resting state.
 function Select({
@@ -68,7 +76,7 @@ export default function Expenses() {
   // Expense drawer
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<ExpenseInput>(emptyForm(branchId));
+  const [form, setForm] = useState<ExpenseInput>(() => emptyForm(branchId, branches));
   const [saving, setSaving] = useState(false);
 
   // Category drawer
@@ -108,7 +116,7 @@ export default function Expenses() {
   // ---- Expense form ----
   function openCreate() {
     setEditId(null);
-    setForm(emptyForm(branchId));
+    setForm(emptyForm(branchId, branches));
     setError("");
     setShowForm(true);
   }
