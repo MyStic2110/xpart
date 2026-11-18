@@ -12,10 +12,13 @@ export interface DayWeather {
 interface CacheEntry {
   fetchedAt: number;
   days: DayWeather[];
+  failed?: boolean;
 }
 
 const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, Promise<DayWeather[] | null>>();
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3h — forecasts don't move faster
+const NEGATIVE_TTL_MS = 30 * 60 * 1000; // 30m failure cooldown — prevents hammering / freezing on network issues
 
 // WMO weather code → short human summary (subset that matters for a car wash).
 function describe(code: number, rainProb: number): string {
@@ -78,34 +81,106 @@ async function resolveCoords(city: string): Promise<{ latitude: number; longitud
   }
 }
 
-export async function getRainForecast(city: string): Promise<DayWeather[] | null> {
-  const key = city.trim().toLowerCase();
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) return hit.days;
+async function fetchFromWttr(city: string): Promise<DayWeather[] | null> {
+  try {
+    const res = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`, {
+      signal: AbortSignal.timeout(1500),
+      headers: { "User-Agent": "curl/7.68.0" },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as any;
+    if (!data?.weather || !Array.isArray(data.weather)) return null;
 
+    return data.weather.map((w: any) => {
+      const rainProb = Math.max(...(w.hourly ?? []).map((h: any) => Number(h.chanceofrain) || 0), 0);
+      const summary =
+        w.hourly?.[4]?.weatherDesc?.[0]?.value?.trim() ||
+        w.hourly?.[0]?.weatherDesc?.[0]?.value?.trim() ||
+        "Clear";
+      return {
+        date: w.date,
+        rainProbability: rainProb,
+        tempMax: Math.round(Number(w.maxtempC) || 0),
+        summary,
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFromOpenMeteo(city: string): Promise<DayWeather[] | null> {
   try {
     const loc = await resolveCoords(city);
-    if (!loc) return hit?.days ?? null;
+    if (!loc) return null;
 
     const wxRes = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
-        `&daily=precipitation_probability_max,weathercode,temperature_2m_max&forecast_days=16&timezone=Asia%2FKolkata`
+        `&daily=precipitation_probability_max,weathercode,temperature_2m_max&forecast_days=16&timezone=Asia%2FKolkata`,
+      { signal: AbortSignal.timeout(1500) }
     );
-    if (!wxRes.ok) return hit?.days ?? null;
+    if (!wxRes.ok) return null;
     const wx = (await wxRes.json()) as {
       daily?: { time: string[]; precipitation_probability_max: (number | null)[]; weathercode: number[]; temperature_2m_max: number[] };
     };
-    if (!wx.daily) return hit?.days ?? null;
+    if (!wx.daily) return null;
 
-    const days: DayWeather[] = wx.daily.time.map((date, i) => {
+    return wx.daily.time.map((date, i) => {
       const rainProb = wx.daily!.precipitation_probability_max[i] ?? 0;
       const code = wx.daily!.weathercode[i] ?? 0;
-      return { date, rainProbability: rainProb, tempMax: Math.round(wx.daily!.temperature_2m_max[i] ?? 0), summary: describe(code, rainProb) };
+      return {
+        date,
+        rainProbability: rainProb,
+        tempMax: Math.round(wx.daily!.temperature_2m_max[i] ?? 0),
+        summary: describe(code, rainProb),
+      };
     });
-
-    cache.set(key, { fetchedAt: Date.now(), days });
-    return days;
   } catch {
-    return hit?.days ?? null; // offline / DNS blocked → stale cache or nothing
+    return null;
   }
+}
+
+export async function getRainForecast(city: string): Promise<DayWeather[] | null> {
+  const key = city.trim().toLowerCase();
+  const hit = cache.get(key);
+  if (hit) {
+    if (hit.failed) {
+      if (Date.now() - hit.fetchedAt < NEGATIVE_TTL_MS) return hit.days.length > 0 ? hit.days : null;
+    } else {
+      if (Date.now() - hit.fetchedAt < CACHE_TTL_MS) return hit.days;
+    }
+  }
+
+  // Deduplicate in-flight requests for the same city
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+
+  const fetchPromise = (async () => {
+    try {
+      // 1. Try wttr.in first (fast and reliable on cloud datacenter IPs)
+      let days = await fetchFromWttr(city);
+
+      // 2. Fall back to Open-Meteo if wttr.in didn't return
+      if (!days || days.length === 0) {
+        days = await fetchFromOpenMeteo(city);
+      }
+
+      if (days && days.length > 0) {
+        cache.set(key, { fetchedAt: Date.now(), days, failed: false });
+        return days;
+      }
+
+      // Negative caching to prevent repeat stalls
+      cache.set(key, { fetchedAt: Date.now(), days: hit?.days ?? [], failed: true });
+      return hit?.days ?? null;
+    } catch {
+      cache.set(key, { fetchedAt: Date.now(), days: hit?.days ?? [], failed: true });
+      return hit?.days ?? null;
+    } finally {
+      inFlight.delete(key);
+    }
+  })();
+
+  inFlight.set(key, fetchPromise);
+  return fetchPromise;
 }

@@ -49,78 +49,98 @@ export async function calendarRoutes(app: FastifyInstance) {
 
     const jcB = b ? sql`and jc.branch_id = ${b}` : sql``;
     const invB = b ? sql`and i.branch_id = ${b}` : sql``;
+    const prevMonthStart = addDays(monthStart, -1).slice(0, 7) + "-01";
 
-    // One row per calendar day with every operational count/sum for the month.
-    // Optimized with CTE pre-aggregations to avoid executing 150+ subqueries per request.
-    const dayRows = (await db.execute(sql`
-      with date_series as (
-        select d.date::date as date
-        from generate_series(${monthStart}::date, ${monthStart}::date + interval '${sql.raw(String(daysInMonth - 1))} days', '1 day') d(date)
+    // Run all database aggregations in parallel to minimize latency
+    const [dayRowsRaw, dowRowsRaw, branchRaw, prevRowRaw] = await Promise.all([
+      // 1. One row per calendar day with every operational count/sum for the month
+      db.execute(sql`
+        with date_series as (
+          select d.date::date as date
+          from generate_series(${monthStart}::date, ${monthStart}::date + interval '${sql.raw(String(daysInMonth - 1))} days', '1 day') d(date)
+        ),
+        daily_payments as (
+          select p.paid_at::date as date, coalesce(sum(p.amount), 0)::int as revenue
+          from payments p
+          join invoices i on i.id = p.invoice_id
+          where i.org_id = ${orgId} ${invB}
+            and p.paid_at >= ${monthStart}::date and p.paid_at < ${nextMonthStart}::date
+          group by p.paid_at::date
+        ),
+        daily_expenses as (
+          select e.expense_date as date, coalesce(sum(e.amount), 0)::int as expenses
+          from expenses e
+          where e.org_id = ${orgId} ${b ? sql`and e.branch_id = ${b}` : sql``}
+            and e.expense_date >= ${monthStart}::date and e.expense_date < ${nextMonthStart}::date
+          group by e.expense_date
+        ),
+        daily_job_cards as (
+          select jc.job_date as date, count(*)::int as job_cards
+          from job_cards jc
+          where jc.org_id = ${orgId} ${jcB}
+            and jc.job_date >= ${monthStart}::date and jc.job_date < ${nextMonthStart}::date
+          group by jc.job_date
+        ),
+        daily_appointments as (
+          select a.scheduled_date as date, count(*)::int as appointments
+          from appointments a
+          where a.org_id = ${orgId} ${b ? sql`and a.branch_id = ${b}` : sql``}
+            and a.scheduled_date >= ${monthStart}::date and a.scheduled_date < ${nextMonthStart}::date
+            and a.status in ('scheduled','confirmed')
+          group by a.scheduled_date
+        ),
+        daily_enquiries as (
+          select q.created_at::date as date, count(*)::int as enquiries
+          from enquiries q
+          where q.org_id = ${orgId} ${b ? sql`and q.branch_id = ${b}` : sql``}
+            and q.created_at >= ${monthStart}::date and q.created_at < ${nextMonthStart}::date
+          group by q.created_at::date
+        )
+        select
+          ds.date::text as date,
+          coalesce(dp.revenue, 0)::int as revenue,
+          coalesce(de.expenses, 0)::int as expenses,
+          coalesce(djc.job_cards, 0)::int as "jobCards",
+          coalesce(dapt.appointments, 0)::int as appointments,
+          coalesce(deq.enquiries, 0)::int as enquiries
+        from date_series ds
+        left join daily_payments dp on dp.date = ds.date
+        left join daily_expenses de on de.date = ds.date
+        left join daily_job_cards djc on djc.date = ds.date
+        left join daily_appointments dapt on dapt.date = ds.date
+        left join daily_enquiries deq on deq.date = ds.date
+        order by ds.date
+      `),
+      // 2. Weekday demand pattern from the org's last 180 days
+      db.execute(sql`
+        select
+          extract(dow from p.paid_at)::int as dow,
+          sum(p.amount)::bigint as revenue,
+          count(distinct p.paid_at::date)::int as days
+        from payments p join invoices i on i.id = p.invoice_id
+        where i.org_id = ${orgId} ${invB} and p.paid_at >= current_date - interval '180 days'
+        group by 1
+      `),
+      // 3. Branch city lookup
+      db.execute(
+        b
+          ? sql`select city from branches where id = ${b} limit 1`
+          : sql`select city from branches where org_id = ${orgId} order by created_at limit 1`
       ),
-      daily_payments as (
-        select p.paid_at::date as date, coalesce(sum(p.amount), 0)::int as revenue
-        from payments p
-        join invoices i on i.id = p.invoice_id
+      // 4. Previous month revenue
+      db.execute(sql`
+        select coalesce(sum(p.amount),0)::bigint as total
+        from payments p join invoices i on i.id = p.invoice_id
         where i.org_id = ${orgId} ${invB}
-          and p.paid_at >= ${monthStart}::date and p.paid_at < ${nextMonthStart}::date
-        group by p.paid_at::date
-      ),
-      daily_expenses as (
-        select e.expense_date as date, coalesce(sum(e.amount), 0)::int as expenses
-        from expenses e
-        where e.org_id = ${orgId} ${b ? sql`and e.branch_id = ${b}` : sql``}
-          and e.expense_date >= ${monthStart}::date and e.expense_date < ${nextMonthStart}::date
-        group by e.expense_date
-      ),
-      daily_job_cards as (
-        select jc.job_date as date, count(*)::int as job_cards
-        from job_cards jc
-        where jc.org_id = ${orgId} ${jcB}
-          and jc.job_date >= ${monthStart}::date and jc.job_date < ${nextMonthStart}::date
-        group by jc.job_date
-      ),
-      daily_appointments as (
-        select a.scheduled_date as date, count(*)::int as appointments
-        from appointments a
-        where a.org_id = ${orgId} ${b ? sql`and a.branch_id = ${b}` : sql``}
-          and a.scheduled_date >= ${monthStart}::date and a.scheduled_date < ${nextMonthStart}::date
-          and a.status in ('scheduled','confirmed')
-        group by a.scheduled_date
-      ),
-      daily_enquiries as (
-        select q.created_at::date as date, count(*)::int as enquiries
-        from enquiries q
-        where q.org_id = ${orgId} ${b ? sql`and q.branch_id = ${b}` : sql``}
-          and q.created_at >= ${monthStart}::date and q.created_at < ${nextMonthStart}::date
-        group by q.created_at::date
-      )
-      select
-        ds.date::text as date,
-        coalesce(dp.revenue, 0)::int as revenue,
-        coalesce(de.expenses, 0)::int as expenses,
-        coalesce(djc.job_cards, 0)::int as "jobCards",
-        coalesce(dapt.appointments, 0)::int as appointments,
-        coalesce(deq.enquiries, 0)::int as enquiries
-      from date_series ds
-      left join daily_payments dp on dp.date = ds.date
-      left join daily_expenses de on de.date = ds.date
-      left join daily_job_cards djc on djc.date = ds.date
-      left join daily_appointments dapt on dapt.date = ds.date
-      left join daily_enquiries deq on deq.date = ds.date
-      order by ds.date
-    `)) as unknown as Array<{ date: string; revenue: number; expenses: number; jobCards: number; appointments: number; enquiries: number }>;
+          and p.paid_at >= ${prevMonthStart}::date and p.paid_at < ${monthStart}::date
+      `),
+    ]);
 
-    // Weekday demand pattern from the org's own last 180 days of collections —
-    // this is where "weekends are always busy" is inferred rather than assumed.
-    const dowRows = (await db.execute(sql`
-      select
-        extract(dow from p.paid_at)::int as dow,
-        sum(p.amount)::bigint as revenue,
-        count(distinct p.paid_at::date)::int as days
-      from payments p join invoices i on i.id = p.invoice_id
-      where i.org_id = ${orgId} ${invB} and p.paid_at >= current_date - interval '180 days'
-      group by 1
-    `)) as unknown as Array<{ dow: number; revenue: string; days: number }>;
+    const dayRows = dayRowsRaw as unknown as Array<{ date: string; revenue: number; expenses: number; jobCards: number; appointments: number; enquiries: number }>;
+    const dowRows = dowRowsRaw as unknown as Array<{ dow: number; revenue: string; days: number }>;
+    const branchRow = branchRaw as unknown as Array<{ city: string | null }>;
+    const prevRow = prevRowRaw as unknown as Array<{ total: string }>;
+    const prevMonthRevenue = Number(prevRow[0]?.total ?? 0);
 
     const dowAvg: number[] = Array(7).fill(0);
     for (const r of dowRows) dowAvg[r.dow] = r.days > 0 ? Number(r.revenue) / r.days : 0;
@@ -133,14 +153,8 @@ export async function calendarRoutes(app: FastifyInstance) {
       index: Number(dowIndex[i].toFixed(2)),
     }));
 
-    // Rain forecast for the branch city (falls back to the org's first branch).
-    let city = "Chennai";
-    const branchRow = (await db.execute(
-      b
-        ? sql`select city from branches where id = ${b} limit 1`
-        : sql`select city from branches where org_id = ${orgId} order by created_at limit 1`
-    )) as unknown as Array<{ city: string | null }>;
-    if (branchRow[0]?.city) city = branchRow[0].city;
+    // Rain forecast for the branch city (falls back to Chennai)
+    const city = branchRow[0]?.city || "Chennai";
     const weather = await getRainForecast(city);
     const weatherByDate = new Map<string, DayWeather>((weather ?? []).map((w) => [w.date, w]));
 
@@ -207,14 +221,6 @@ export async function calendarRoutes(app: FastifyInstance) {
     // projection = collected-to-date + expected revenue of the remaining days.
     const monthToDate = dayRows.filter((d) => d.date <= today).reduce((s, d) => s + d.revenue, 0);
     const projectedRemaining = demand.filter((d) => d.date > today).reduce((s, d) => s + (d.expectedRevenue ?? 0), 0);
-    const prevMonthStart = addDays(monthStart, -1).slice(0, 7) + "-01";
-    const prevRow = (await db.execute(sql`
-      select coalesce(sum(p.amount),0)::bigint as total
-      from payments p join invoices i on i.id = p.invoice_id
-      where i.org_id = ${orgId} ${invB}
-        and p.paid_at >= ${prevMonthStart}::date and p.paid_at < ${monthStart}::date
-    `)) as unknown as Array<{ total: string }>;
-    const prevMonthRevenue = Number(prevRow[0]?.total ?? 0);
     const bestSoFar = dayRows.filter((d) => d.date <= today).sort((a, c) => c.revenue - a.revenue)[0];
     const next7Expected = demand
       .filter((d) => d.date >= today && d.date < addDays(today, 7))
@@ -295,33 +301,37 @@ export async function calendarRoutes(app: FastifyInstance) {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return reply.code(400).send({ error: "date=YYYY-MM-DD required" });
     const b = branchId && branchId !== "all" ? branchId : null;
 
-    const jobCards = (await db.execute(sql`
-      select jc.id, jc.status, jc.total::int, c.name as "clientName", v.plate_number as "plateNumber"
-      from job_cards jc join clients c on c.id = jc.client_id join vehicles v on v.id = jc.vehicle_id
-      where jc.org_id = ${orgId} ${b ? sql`and jc.branch_id = ${b}` : sql``} and jc.job_date = ${date}
-      order by jc.created_at
-    `)) as unknown as Array<{ id: string; status: string; total: number; clientName: string; plateNumber: string }>;
+    const [jobCardsRaw, appointmentsRaw, expensesRaw, paymentsRaw] = await Promise.all([
+      db.execute(sql`
+        select jc.id, jc.status, jc.total::int, c.name as "clientName", v.plate_number as "plateNumber"
+        from job_cards jc join clients c on c.id = jc.client_id join vehicles v on v.id = jc.vehicle_id
+        where jc.org_id = ${orgId} ${b ? sql`and jc.branch_id = ${b}` : sql``} and jc.job_date = ${date}
+        order by jc.created_at
+      `),
+      db.execute(sql`
+        select a.id, a.scheduled_time as "scheduledTime", a.status, c.name as "clientName", c.phone, s.name as "serviceName"
+        from appointments a join clients c on c.id = a.client_id left join services s on s.id = a.service_id
+        where a.org_id = ${orgId} ${b ? sql`and a.branch_id = ${b}` : sql``} and a.scheduled_date = ${date}
+        order by a.scheduled_time nulls last
+      `),
+      db.execute(sql`
+        select e.id, e.amount::int, e.recipient, coalesce(ec.name, 'Uncategorised') as category
+        from expenses e left join expense_categories ec on ec.id = e.category_id
+        where e.org_id = ${orgId} ${b ? sql`and e.branch_id = ${b}` : sql``} and e.expense_date = ${date}
+        order by e.amount desc
+      `),
+      db.execute(sql`
+        select p.mode, sum(p.amount)::int as amount
+        from payments p join invoices i on i.id = p.invoice_id
+        where i.org_id = ${orgId} ${b ? sql`and i.branch_id = ${b}` : sql``} and p.paid_at::date = ${date}
+        group by p.mode order by amount desc
+      `),
+    ]);
 
-    const appointments = (await db.execute(sql`
-      select a.id, a.scheduled_time as "scheduledTime", a.status, c.name as "clientName", c.phone, s.name as "serviceName"
-      from appointments a join clients c on c.id = a.client_id left join services s on s.id = a.service_id
-      where a.org_id = ${orgId} ${b ? sql`and a.branch_id = ${b}` : sql``} and a.scheduled_date = ${date}
-      order by a.scheduled_time nulls last
-    `)) as unknown as Array<{ id: string; scheduledTime: string | null; status: string; clientName: string; phone: string; serviceName: string | null }>;
-
-    const expenses = (await db.execute(sql`
-      select e.id, e.amount::int, e.recipient, coalesce(ec.name, 'Uncategorised') as category
-      from expenses e left join expense_categories ec on ec.id = e.category_id
-      where e.org_id = ${orgId} ${b ? sql`and e.branch_id = ${b}` : sql``} and e.expense_date = ${date}
-      order by e.amount desc
-    `)) as unknown as Array<{ id: string; amount: number; recipient: string | null; category: string }>;
-
-    const payments = (await db.execute(sql`
-      select p.mode, sum(p.amount)::int as amount
-      from payments p join invoices i on i.id = p.invoice_id
-      where i.org_id = ${orgId} ${b ? sql`and i.branch_id = ${b}` : sql``} and p.paid_at::date = ${date}
-      group by p.mode order by amount desc
-    `)) as unknown as Array<{ mode: string; amount: number }>;
+    const jobCards = jobCardsRaw as unknown as Array<{ id: string; status: string; total: number; clientName: string; plateNumber: string }>;
+    const appointments = appointmentsRaw as unknown as Array<{ id: string; scheduledTime: string | null; status: string; clientName: string; phone: string; serviceName: string | null }>;
+    const expenses = expensesRaw as unknown as Array<{ id: string; amount: number; recipient: string | null; category: string }>;
+    const payments = paymentsRaw as unknown as Array<{ mode: string; amount: number }>;
 
     return reply.send({
       date,
