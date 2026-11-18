@@ -15,9 +15,7 @@ services:
       retries: 10
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/mystic2110/xpart:latest
     restart: always
     depends_on:
       db:
