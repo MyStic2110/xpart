@@ -24,7 +24,7 @@ export async function inventoryRoutes(app: FastifyInstance) {
     const { filter, branchId } = req.query as { filter?: string; branchId?: string };
 
     let cond = sql`i.org_id = ${auth.orgId}`;
-    if (branchId && branchId !== "all") cond = sql`${cond} and l.branch_id = ${branchId}`;
+    if (branchId && branchId !== "all") cond = sql`${cond} and (l.branch_id = ${branchId} or l.branch_id is null)`;
     if (filter === "available") {
       cond = sql`${cond} and i.quantity > 0 and (i.expiry_date is null or i.expiry_date >= current_date)`;
     } else if (filter === "expired") {
@@ -49,8 +49,8 @@ export async function inventoryRoutes(app: FastifyInstance) {
     const auth = req.auth!;
     const { branchId } = req.query as { branchId?: string };
     const b = branchId && branchId !== "all" ? branchId : null;
-    const itemBranch = b ? sql`and i.lot_id in (select id from inventory_lots where branch_id = ${b})` : sql``;
-    const lotBranch = b ? sql`and l.branch_id = ${b}` : sql``;
+    const itemBranch = b ? sql`and (i.lot_id in (select id from inventory_lots where branch_id = ${b} or branch_id is null))` : sql``;
+    const lotBranch = b ? sql`and (l.branch_id = ${b} or l.branch_id is null)` : sql``;
     const result = await db.execute(sql`
       select
         (select count(*) from inventory_items i where i.org_id = ${auth.orgId} and i.quantity > 0
@@ -74,6 +74,7 @@ export async function inventoryRoutes(app: FastifyInstance) {
 
   // Record a purchase: a lot (source/invoice/credit) + its stocked items.
   const purchaseSchema = z.object({
+    branchId: z.string().uuid().optional().nullable(),
     lotNo: z.string().min(1),
     sourceType: z.enum(["vendor", "client", "mechanic", "unknown"]).default("vendor"),
     sourceName: z.string().optional().or(z.literal("")),
@@ -106,10 +107,15 @@ export async function inventoryRoutes(app: FastifyInstance) {
     const d = parsed.data;
 
     const result = await db.transaction(async (tx) => {
+      // Find first branch as fallback for auto-created job cards
+      const firstBranch = await tx.query.branches.findFirst({ where: eq(branches.orgId, auth.orgId) });
+      const branchIdToUse = d.branchId || auth.assignments.find((a) => a.branchId)?.branchId || firstBranch?.id || null;
+
       const [lot] = await tx
         .insert(inventoryLots)
         .values({
           orgId: auth.orgId,
+          branchId: branchIdToUse,
           lotNo: d.lotNo,
           sourceType: d.sourceType,
           sourceName: d.sourceName || null,
@@ -121,10 +127,6 @@ export async function inventoryRoutes(app: FastifyInstance) {
           amountPaid: Math.round(d.amountPaid * 100),
         })
         .returning();
-
-      // Find first branch as fallback for auto-created job cards
-      const firstBranch = await tx.query.branches.findFirst({ where: eq(branches.orgId, auth.orgId) });
-      const branchIdToUse = lot.branchId || firstBranch?.id;
 
       for (const it of d.items) {
         // Insert inventory item

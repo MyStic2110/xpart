@@ -177,6 +177,7 @@ export default function Inventory() {
     try {
       const selectedVendor = vendorsList.find((v) => v.id === vendorId);
       await api.recordPurchase({
+        branchId: branchParam || undefined,
         lotNo,
         sourceType,
         sourceName: sourceType === "vendor" ? (selectedVendor?.name || "") : sourceName,

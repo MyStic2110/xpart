@@ -519,6 +519,7 @@ export interface InventoryConsumption {
 }
 
 export interface PurchaseInput {
+  branchId?: string;
   lotNo: string;
   sourceType: "vendor" | "client" | "mechanic" | "unknown";
   sourceName?: string;
