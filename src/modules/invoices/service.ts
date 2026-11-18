@@ -240,12 +240,20 @@ export async function getInvoiceDetail(orgId: string, invoiceId: string) {
         })
       : null;
 
+    const branch = invoice.branchId
+      ? await tx.query.branches.findFirst({
+          where: eq(branches.id, invoice.branchId),
+          columns: { id: true, name: true, salonName: true, logoUrl: true, address: true, phone: true, email: true, gstNumber: true },
+        })
+      : null;
+
     return {
       invoice: {
         ...invoice,
         appliedOfferCode: appliedOffer?.code ?? null,
         appliedOfferTitle: appliedOffer?.title ?? null,
       },
+      branch,
       jobCard: jc ? { id: jc.id, advanceAmount: jc.advanceAmount } : null,
       client,
       vehicle,

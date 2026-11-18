@@ -414,8 +414,22 @@ export default function InvoiceDetailPage() {
         <div id="print-section" className="hidden print:block w-full max-w-2xl mx-auto p-8 bg-white text-charcoal-900 font-sans">
           {/* Header */}
           <div className="text-center pb-6 border-b border-slate-200">
-            <h1 className="text-[20px] font-bold tracking-wide uppercase text-charcoal-900">{orgName}</h1>
+            {detail.branch?.logoUrl && (
+              <img
+                src={detail.branch.logoUrl}
+                alt={detail.branch.name || orgName}
+                className="max-h-16 max-w-[200px] mx-auto mb-3 object-contain"
+              />
+            )}
+            <h1 className="text-[20px] font-bold tracking-wide uppercase text-charcoal-900">{detail.branch?.name || orgName}</h1>
             <p className="text-[12px] text-slate-500 mt-1">Premium Car Care & Auto Detailing Services</p>
+            {detail.branch?.address && (
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {detail.branch.address}
+                {detail.branch.phone ? ` · Ph: ${detail.branch.phone}` : ""}
+                {detail.branch.gstNumber ? ` · GSTIN: ${detail.branch.gstNumber}` : ""}
+              </p>
+            )}
             <p className="text-[10px] text-slate-400 mt-0.5">TAX INVOICE</p>
           </div>
 

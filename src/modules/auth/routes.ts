@@ -2,6 +2,9 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { signupOrg, login, AuthError } from "./service";
 import { schemaDoc } from "@/utils/swagger";
+import { db } from "@/db/client";
+import { branches } from "@/db/schema";
+import { or, isNotNull } from "drizzle-orm";
 
 const signupSchema = z.object({
   orgName: z.string().min(2),
@@ -54,5 +57,39 @@ export async function authRoutes(app: FastifyInstance) {
       if (err instanceof AuthError) return reply.code(err.statusCode).send({ error: err.message });
       throw err;
     }
+  });
+
+  app.get("/auth/branding", {
+    ...schemaDoc({
+      tags: ["Auth"],
+      summary: "Get public organization and branch branding for login and portal screens",
+    })
+  }, async (_req, reply) => {
+    // 1. Try to find a branch with custom logo or background
+    const [custom] = await db
+      .select({
+        name: branches.name,
+        salonName: branches.salonName,
+        logoUrl: branches.logoUrl,
+        loginBgUrl: branches.loginBgUrl,
+      })
+      .from(branches)
+      .where(or(isNotNull(branches.logoUrl), isNotNull(branches.loginBgUrl)))
+      .limit(1);
+
+    if (custom) return reply.send(custom);
+
+    // 2. Fallback to first branch
+    const [first] = await db
+      .select({
+        name: branches.name,
+        salonName: branches.salonName,
+        logoUrl: branches.logoUrl,
+        loginBgUrl: branches.loginBgUrl,
+      })
+      .from(branches)
+      .limit(1);
+
+    return reply.send(first ?? { name: "Xpart Automotive", salonName: null, logoUrl: null, loginBgUrl: null });
   });
 }

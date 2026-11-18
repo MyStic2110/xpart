@@ -66,16 +66,31 @@ export default function Sidebar({ orgName, onLogout }: { orgName: string; onLogo
   const [branchOpen, setBranchOpen] = useState(false);
 
   const selectedBranch = branches.find((b) => b.id === branchId) ?? null;
+  const currentLogo = selectedBranch?.logoUrl || branches.find((b) => b.logoUrl)?.logoUrl || null;
+  const [logoError, setLogoError] = useState(false);
 
   return (
     <aside className="hidden md:flex w-64 h-full shrink-0 flex-col border-r border-slate-200/80 bg-white px-4 py-4 z-20 overflow-hidden">
       {/* Brand Header */}
       <div className="shrink-0">
         <div className="flex items-center gap-2.5 px-2 mb-3.5">
-          <div className="w-7 h-7 rounded-lg bg-charcoal-900 flex items-center justify-center shrink-0">
-            <Gauge size={15} strokeWidth={2} className="text-white" />
-          </div>
-          <span className="text-[14px] font-semibold text-charcoal-900 tracking-tight truncate">{orgName}</span>
+          {currentLogo && !logoError ? (
+            <div className="h-8 w-8 rounded-lg bg-white border border-slate-200/80 p-0.5 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+              <img
+                src={currentLogo}
+                alt={selectedBranch?.name || orgName}
+                onError={() => setLogoError(true)}
+                className="h-full w-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="w-7 h-7 rounded-lg bg-charcoal-900 flex items-center justify-center shrink-0">
+              <Gauge size={15} strokeWidth={2} className="text-white" />
+            </div>
+          )}
+          <span className="text-[14px] font-semibold text-charcoal-900 tracking-tight truncate">
+            {selectedBranch?.salonName || selectedBranch?.name || orgName}
+          </span>
         </div>
 
         {/* Branch switcher — scopes every operational module to the chosen branch */}

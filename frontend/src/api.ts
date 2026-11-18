@@ -822,6 +822,16 @@ export interface InvoiceDetail {
     remarks: string | null;
   };
   jobCard?: { id: string; advanceAmount: number } | null;
+  branch?: {
+    id: string;
+    name: string;
+    salonName: string | null;
+    logoUrl: string | null;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    gstNumber: string | null;
+  } | null;
   client: ClientRecord | null;
   vehicle: { plateNumber: string } | null;
   lineItems: { id: string; serviceName: string; qty: number; price: number; type?: "service" | "product" }[];
@@ -1217,6 +1227,8 @@ export const api = {
     request<{ token: string }>("/auth/signup", { method: "POST", body: JSON.stringify(input) }),
   login: (phone: string, password: string) =>
     request<{ token: string }>("/auth/login", { method: "POST", body: JSON.stringify({ phone, password }) }),
+  getBranding: () =>
+    request<{ name: string; salonName: string | null; logoUrl: string | null; loginBgUrl: string | null }>("/auth/branding"),
   me: () => request<MeResponse>("/me"),
   dashboardMetrics: (branchId?: string) =>
     request<DashboardMetrics>(`/dashboard/metrics${branchId ? `?branchId=${branchId}` : ""}`),
